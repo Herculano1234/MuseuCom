@@ -21,12 +21,19 @@ export default function Login() {
     try {
       setLoading(true);
       const resp = await api.post("/auth/login", { email: email.trim(), password });
-      const user = resp.data;
+      // resp.data contém { ...user, token }
+      const { token, refreshToken, ...user } = resp.data || {};
+      if (token) {
+        localStorage.setItem('museucom-token', token);
+      }
+      if (refreshToken) {
+        localStorage.setItem('museucom-refresh', refreshToken);
+      }
       localStorage.setItem("museucom-auth", "true");
       localStorage.setItem("museucom-user", JSON.stringify(user));
-      const userRole = user.role || "visitante";
+      const userRole = (user && user.role) ? user.role : "user";
       localStorage.setItem("museucom-perfil", userRole);
-      navigate(userRole === "administrador" ? "/admin" : "/visitante");
+      navigate(userRole === "administrador" ? "/admin" : "/dashboard");
     } catch (err: any) {
       setError(err?.response?.data?.error || "Erro ao autenticar.");
     } finally {

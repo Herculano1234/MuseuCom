@@ -140,7 +140,7 @@ export default function LandingPage() {
             transition={{ duration: 0.8 }}
           >
             <span className="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold uppercase tracking-wider">
-              Bem-vindo ao MuseuCom
+              Bem-vindo ao Museu das Comunicações
             </span>
             <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-tight">
               Conectando Passado, <span className="text-indigo-600">Presente</span> e Futuro.

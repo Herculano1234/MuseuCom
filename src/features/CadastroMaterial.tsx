@@ -24,7 +24,7 @@ export default function CadastroMaterial() {
   });
 
   // URL dinâmica para o QR Code
-  const qrUrl = `https://api.museucom.ao/materiais/${formData.numero_serie || 'pendente'}`;
+  const qrUrl = `https://museucomback.vercel.app/${formData.numero_serie || 'pendente'}`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

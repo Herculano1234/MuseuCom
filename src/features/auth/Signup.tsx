@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "@fortawesome/fontawesome-free/css/all.min.css";
+import api from "../../api";
 
 // URL de uma imagem artística para o lado esquerdo (pode substituir por uma local depois)
 const BG_IMAGE = "https://images.unsplash.com/photo-1544531586-fde5298cdd40?q=80&w=2070&auto=format&fit=crop";
@@ -32,30 +33,33 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      // Ajuste o endpoint conforme sua API
-      const url = "http://localhost:4000/usuarios"; 
+      // Usa o cliente `api` para chamar o backend
       const body = { nome, email, senha, telefone: contacto };
+      await api.post('/usuarios', body);
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao criar conta.");
+      // Após cadastro, tentar login automático para melhor UX
+      try {
+        const loginResp = await api.post('/auth/login', { email: email.trim(), password: senha });
+        const { token, refreshToken, ...user } = loginResp.data || {};
+        if (token) localStorage.setItem('museucom-token', token);
+        if (refreshToken) localStorage.setItem('museucom-refresh', refreshToken);
+        localStorage.setItem('museucom-auth', 'true');
+        localStorage.setItem('museucom-user', JSON.stringify(user));
+        localStorage.setItem('museucom-perfil', user.role || 'user');
+        navigate('/dashboard');
+        return;
+      } catch (loginErr: any) {
+        // Se login automático falhar, segue para a tela de login
+        console.warn('Cadastro ok, mas login automático falhou:', loginErr);
+        setTimeout(() => {
+          alert('Conta criada com sucesso. Por favor, faça login.');
+          navigate('/login');
+        }, 300);
+        return;
       }
-
-      // Sucesso
-      setTimeout(() => {
-        alert("Bem-vindo ao MuseuCom! Cadastro realizado.");
-        navigate("/login");
-      }, 500); // Pequeno delay para UX
-
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Falha na conexão com o servidor.");
+      setError(err?.response?.data?.error || err.message || 'Falha na conexão com o servidor.');
     } finally {
       setLoading(false);
     }
