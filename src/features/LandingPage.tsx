@@ -3,629 +3,317 @@ import { Link } from "react-router-dom";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { motion, AnimatePresence } from "framer-motion";
 
+// --- DADOS ORIGINAIS PRESERVADOS ---
 const carouselImages = [
   "https://angolafieldgroup.com/wp-content/uploads/2008/04/maria-pia-hospital1.jpg?w=768",
   "https://www.makaangola.org/wp-content/uploads/2021/08/hospital-geral-luanda-860x280.jpg",
   "https://rna.ao/rna.ao/wp-content/uploads/2022/03/5839350E-A2A6-4BB9-B001-0E1AB7331FC5.jpeg"
 ];
 
-// Componentes reutilizáveis
-const FeatureCard = ({ icon, title, description }: { icon: string, title: string, description: string }) => (
-  <motion.div 
-    className="card bg-gray-50 dark:bg-gray-900 p-6 rounded-xl shadow-lg flex flex-col items-center h-full"
-    whileHover={{ 
-      y: -10,
-      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-    }}
-    transition={{ duration: 0.3 }}
-  >
-    <div className="card-icon text-4xl mb-4">{icon}</div>
-    <h3 className="card-title text-xl font-semibold mb-3 text-gray-800 dark:text-white">{title}</h3>
-    <p className="card-description text-gray-600 dark:text-gray-300 text-center">{description}</p>
-  </motion.div>
-);
+const servicesData = [
+  { icon: "fas fa-users", title: "Visitas Guiadas", desc: "Experiência acompanhada por especialistas que explicam a história das comunicações." },
+  { icon: "fas fa-landmark", title: "Exposições", desc: "Mostrando desde equipamentos clássicos até tecnologias modernas, permanentes e temporárias." },
+  { icon: "fas fa-graduation-cap", title: "Atividades Educativas", desc: "Oficinas, palestras e programas escolares para inspirar novas gerações." },
+  { icon: "fas fa-book-open", title: "Pesquisa e Documentação", desc: "Apoio a estudantes e investigadores interessados em telecomunicações e história." },
+  { icon: "fas fa-calendar-alt", title: "Eventos Culturais", desc: "Espaço para conferências, lançamentos de livros e encontros temáticos." },
+];
 
-const Carousel = ({ images, currentIndex, setCurrentIndex }: { 
-  images: string[], 
-  currentIndex: number, 
-  setCurrentIndex: React.Dispatch<React.SetStateAction<number>> 
-}) => (
-  <div className="relative w-full max-w-2xl h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
-    <AnimatePresence mode="wait">
-      <motion.img
-        key={currentIndex}
-        src={images[currentIndex]}
-        alt="Healthcare"
-        className="absolute top-0 left-0 w-full h-full object-cover"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.8 }}
-      />
-    </AnimatePresence>
-    
-    {/* Indicadores */}
-    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-      {images.map((_, idx) => (
-        <button 
-          key={idx}
-          onClick={() => setCurrentIndex(idx)}
-          className={`w-3 h-3 rounded-full transition-all duration-300 ${
-            currentIndex === idx 
-              ? "bg-moyo-primary w-6" 
-              : "bg-white/50"
-          }`}
-          aria-label={`Ir para imagem ${idx + 1}`}
-        />
-      ))}
-    </div>
-    
-    {/* Botões de navegação */}
-    <button 
-      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-sm rounded-full p-2 hover:bg-white/50 transition-all z-20"
-      onClick={() => setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-      aria-label="Imagem anterior"
-    >
-      <i className="fas fa-chevron-left text-gray-800"></i>
-    </button>
-    <button 
-      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-sm rounded-full p-2 hover:bg-white/50 transition-all z-20"
-      onClick={() => setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
-      aria-label="Próxima imagem"
-    >
-      <i className="fas fa-chevron-right text-gray-800"></i>
-    </button>
-  </div>
-);
+const artifactsData = [
+  { id: 1, name: "Telefone de Disco", category: "telefones", desc: "Baquelite, Anos 70. Usado em residências.", inv: "INV-001", img: "https://images.unsplash.com/photo-1520962922320-2038eebab146?auto=format&fit=crop&q=80&w=400" },
+  { id: 2, name: "Rádio Valvulado", category: "radios", desc: "Madeira, Anos 50. Recepção AM/SW.", inv: "INV-004", img: "https://images.unsplash.com/photo-1524312788339-e4a69f68cb67?auto=format&fit=crop&q=80&w=400" },
+  { id: 3, name: "Telégrafo Morse", category: "telegrafia", desc: "Metal/Madeira, Séc. XIX. Transmissão de dados.", inv: "INV-012", img: "https://images.unsplash.com/photo-1542385352-7e9b4661073e?auto=format&fit=crop&q=80&w=400" },
+  { id: 4, name: "Telex T100", category: "telegrafia", desc: "Eletromecânico. Envio de mensagens escritas.", inv: "INV-020", img: "https://images.unsplash.com/photo-1563205764-64b598b0f772?auto=format&fit=crop&q=80&w=400" },
+  { id: 5, name: "Celular 'Tijolão'", category: "equipamentos digitais", desc: "Plástico, Anos 90. Primeira geração móvel.", inv: "INV-033", img: "https://images.unsplash.com/photo-1576662712683-176317bbb69c?auto=format&fit=crop&q=80&w=400" },
+  { id: 6, name: "Lista Telefônica 1980", category: "documentos", desc: "Papel. Registo de assinantes de Luanda.", inv: "INV-045", img: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&q=80&w=400" },
+];
+
+const categories = ["todos", "telefones", "radios", "telegrafia", "documentos", "equipamentos digitais"];
 
 export default function LandingPage() {
   const [carouselIdx, setCarouselIdx] = useState(0);
-  const [dark, setDark] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("todos");
   const carouselInterval = useRef<number | null>(null);
 
   useEffect(() => {
     carouselInterval.current = window.setInterval(() => {
       setCarouselIdx((idx) => (idx + 1) % carouselImages.length);
-    }, 5000);
-    return () => {
-      if (carouselInterval.current) window.clearInterval(carouselInterval.current);
-    };
+    }, 6000);
+    return () => { if (carouselInterval.current) window.clearInterval(carouselInterval.current); };
   }, []);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
-
-  // Animação de scroll para links
   const handleScrollTo = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
-      window.scrollTo({
-        top: element.offsetTop - 80,
-        behavior: "smooth"
-      });
+      window.scrollTo({ top: element.offsetTop - 80, behavior: "smooth" });
       setMobileMenuOpen(false);
     }
   };
 
-  return (
-    <div className="overflow-y-auto min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex flex-col overflow-x-hidden">
-      {/* Header moderno */}
-      <motion.header 
-        className="flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 sm:py-5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm sticky top-0 z-50"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-        <motion.div 
-          className="flex items-center gap-2 text-2xl font-bold text-moyo-primary"
-          whileHover={{ scale: 1.05 }}
-        >
-          <i className="fas fa-heartbeat text-red-500 text-3xl"></i>
-          <span>Moyo</span>
-        </motion.div>
-        
-        {/* Desktop nav */}
-        <nav className="hidden md:flex gap-6 items-center">
-          {["home", "services", "about", "features", "contact"].map((item) => (
-            <motion.button
-              key={item}
-              onClick={() => handleScrollTo(item)}
-              className="text-gray-700 dark:text-gray-200 hover:text-moyo-primary font-medium px-1 py-2 relative group"
-              whileHover={{ y: -2 }}
-            >
-              {item.charAt(0).toUpperCase() + item.slice(1)}
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-moyo-primary transition-all duration-300 group-hover:w-full"></span>
-            </motion.button>
-          ))}
-        </nav>
-        
-        <div className="hidden md:flex gap-3">
-          <Link to="/login">
-            <motion.div
-              className="px-5 py-2 rounded-lg border-2 border-moyo-primary text-moyo-primary bg-transparent font-medium shadow-sm"
-              whileHover={{ 
-                backgroundColor: "#3B82F6",
-                color: "#FFF",
-                scale: 1.05
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Entrar
-            </motion.div>
-          </Link>
-          <Link to="/signup">
-            <motion.div
-              className="px-5 py-2 rounded-lg bg-moyo-primary text-white font-medium shadow"
-              whileHover={{ 
-                backgroundColor: "#2563EB",
-                scale: 1.05
-              }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Cadastrar-se
-            </motion.div>
-          </Link>
-        </div>
-        
-        {/* Mobile menu button */}
-        <motion.button
-          className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg focus:outline-none"
-          onClick={() => setMobileMenuOpen((open) => !open)}
-          aria-label="Abrir menu"
-          whileTap={{ scale: 0.9 }}
-        >
-          <div className="relative w-6 h-6">
-            <span className={`absolute block w-full h-0.5 bg-moyo-primary transition-all duration-300 ${mobileMenuOpen ? 'top-1/2 transform -rotate-45 -translate-y-1/2' : 'top-1/4'}`}></span>
-            <span className={`absolute top-1/2 block w-full h-0.5 bg-moyo-primary transition-all duration-300 ${mobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
-            <span className={`absolute block w-full h-0.5 bg-moyo-primary transition-all duration-300 ${mobileMenuOpen ? 'top-1/2 transform rotate-45 -translate-y-1/2' : 'top-3/4'}`}></span>
-          </div>
-        </motion.button>
-      </motion.header>
+  const filteredArtifacts = activeCategory === "todos" 
+    ? artifactsData 
+    : artifactsData.filter(item => item.category === activeCategory);
 
-      {/* Mobile menu */}
+  return (
+    <div className="min-h-screen bg-white font-sans text-slate-800 selection:bg-indigo-100 overflow-x-hidden">
+      
+      {/* NAVBAR */}
+      <header className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 text-2xl font-black text-indigo-700 cursor-pointer" 
+            onClick={() => handleScrollTo('inicio')}
+          >
+            <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg">
+              <i className="fas fa-landmark"></i>
+            </div>
+            <span>MuseuCom</span>
+          </motion.div>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex gap-8 items-center">
+            {["Início", "Serviços", "Artefactos", "Contato"].map((item, idx) => (
+              <motion.button 
+                key={item} 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                onClick={() => handleScrollTo(item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))} 
+                className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-widest"
+              >
+                {item}
+              </motion.button>
+            ))}
+            <div className="h-5 w-px bg-slate-200 mx-2"></div>
+            <Link to="/login" className="px-6 py-2.5 bg-indigo-600 text-white rounded-full font-bold text-sm shadow-md hover:bg-indigo-700 transition-all">
+              Área Restrita
+            </Link>
+          </nav>
+
+          {/* Mobile Menu Toggle */}
+          <button className="md:hidden text-2xl text-slate-800 p-2" onClick={() => setMobileMenuOpen(true)}>
+            <i className="fas fa-bars"></i>
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE MENU OVERLAY */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-lg md:hidden flex flex-col items-center justify-center"
           >
-            <motion.div 
-              className="absolute top-0 right-0 h-full w-4/5 bg-white dark:bg-gray-800 shadow-lg"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 flex flex-col h-full">
-                <div className="flex justify-end mb-8">
-                  <button 
-                    className="text-gray-500 dark:text-gray-300"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <i className="fas fa-times text-xl"></i>
-                  </button>
-                </div>
-                
-                <nav className="flex flex-col gap-6">
-                  {["home", "services", "about", "features", "contact"].map((item) => (
-                    <motion.button
-                      key={item}
-                      onClick={() => handleScrollTo(item)}
-                      className="text-left text-lg font-medium text-gray-700 dark:text-gray-200 py-2 border-b border-gray-100 dark:border-gray-700"
-                      whileHover={{ x: 10 }}
-                    >
-                      {item.charAt(0).toUpperCase() + item.slice(1)}
-                    </motion.button>
-                  ))}
-                </nav>
-                
-                <div className="mt-auto pt-10 space-y-4">
-                  <Link to="/login" className="block">
-                    <motion.div
-                      className="w-full py-3 text-center rounded-lg border-2 border-moyo-primary text-moyo-primary font-medium"
-                      whileHover={{ backgroundColor: "#3B82F6", color: "#FFF" }}
-                    >
-                      Entrar
-                    </motion.div>
-                  </Link>
-                  <Link to="/signup" className="block">
-                    <motion.div
-                      className="w-full py-3 text-center rounded-lg bg-moyo-primary text-white font-medium"
-                      whileHover={{ backgroundColor: "#2563EB" }}
-                    >
-                      Cadastrar-se
-                    </motion.div>
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
+            <button className="absolute top-6 right-6 text-3xl text-white" onClick={() => setMobileMenuOpen(false)}>
+              <i className="fas fa-times"></i>
+            </button>
+            <nav className="flex flex-col gap-8 text-center">
+              {["Início", "Serviços", "Artefactos", "Contato"].map((item) => (
+                <button 
+                  key={item} 
+                  onClick={() => handleScrollTo(item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))} 
+                  className="text-2xl font-black text-white hover:text-indigo-400 transition-colors"
+                >
+                  {item}
+                </button>
+              ))}
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="mt-4 px-10 py-4 bg-indigo-600 text-white rounded-full font-bold text-lg">
+                Área Restrita
+              </Link>
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="overflow-y-auto">
-      {/* Hero Section com gradiente animado */}
-      <section 
-        id="home"
-        className="relative py-16 md:py-24 overflow-hidden"
-        style={{
-          background: `linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(255, 255, 255, 0) 50%, rgba(99, 102, 241, 0.05) 100%)`
-        }}
-      >
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-10 left-10 w-64 h-64 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-          <div className="absolute top-40 right-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-20 left-1/2 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-        </div>
-        
-        <div className="container mx-auto px-4 relative z-10 flex flex-col md:flex-row items-center gap-10">
+
+      {/* HERO SECTION */}
+      <section id="inicio" className="relative pt-32 pb-20 overflow-hidden">
+        <div className="container mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
           <motion.div 
-            className="flex-1 flex flex-col items-start gap-6"
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7 }}
+            className="flex-1 space-y-6" 
+            initial={{ opacity: 0, x: -50 }} 
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
           >
-            <motion.h1 
-              className="text-3xl xs:text-4xl sm:text-5xl md:text-6xl font-bold text-gray-800 dark:text-white leading-tight"
-              initial={{ y: 20 }}
-              animate={{ y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              Acesse a saúde com <span className="text-moyo-primary">inteligência</span>.
-              <br />
-              <span className="text-xl xs:text-2xl md:text-3xl font-normal text-gray-600 dark:text-gray-300 mt-4 block">
-                Onde você estiver, quando precisar.
-              </span>
-            </motion.h1>
-            
-            <motion.div 
-              className="flex flex-col xs:flex-row gap-4 mb-6 w-full"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Link to="/login" className="w-full xs:w-auto">
-                <motion.div
-                  className="flex items-center justify-center gap-3 bg-moyo-primary text-white px-5 py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all w-full font-semibold"
-                  whileHover={{ 
-                    y: -3,
-                    backgroundColor: "#2563EB"
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <i className="fas fa-user-injured"></i>
-                  Sou Paciente
-                </motion.div>
-              </Link>
-              <Link to="/login" className="w-full xs:w-auto">
-                <motion.div
-                  className="flex items-center justify-center gap-3 bg-indigo-600 text-white px-5 py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all w-full font-semibold"
-                  whileHover={{ 
-                    y: -3,
-                    backgroundColor: "#4F46E5"
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <i className="fas fa-user-md"></i>
-                  Sou Profissional
-                </motion.div>
-              </Link>
-            </motion.div>
-            
-            <motion.div 
-              className="flex flex-wrap gap-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              {[
-                { icon: "fas fa-brain", text: "Triagem com IA" },
-                { icon: "fas fa-calendar-check", text: "Agendamentos rápidos" },
-                { icon: "fas fa-heartbeat", text: "Monitoramento pós-consulta" }
-              ].map((feature, idx) => (
-                <motion.span
-                  key={idx}
-                  className="feature-bubble bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-full flex items-center gap-2 text-gray-700 dark:text-gray-200 text-sm font-medium shadow-sm"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ delay: 0.1 * idx }}
-                >
-                  <i className={feature.icon}></i>
-                  {feature.text}
-                </motion.span>
-              ))}
-            </motion.div>
+            <span className="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold uppercase tracking-wider">
+              Bem-vindo ao MuseuCom
+            </span>
+            <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-tight">
+              Conectando Passado, <span className="text-indigo-600">Presente</span> e Futuro.
+            </h1>
+            <p className="text-xl text-slate-600 border-l-4 border-indigo-500 pl-4 italic leading-relaxed">
+              "O Museu das Comunicações de Angola é um espaço que preserva a memória e inspira novas gerações."
+            </p>
+            <div className="flex flex-wrap gap-4 pt-4">
+              <button onClick={() => handleScrollTo('contato')} className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                Visite-nos
+              </button>
+              <button onClick={() => handleScrollTo('artefactos')} className="px-8 py-4 border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:border-indigo-600 transition-all">
+                Ver Artefactos
+              </button>
+            </div>
           </motion.div>
-          
+
           <motion.div 
-            className="flex-1 w-full mt-12 md:mt-0"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="flex-1 w-full rounded-[2.5rem] overflow-hidden shadow-2xl border-8 border-slate-50 relative group"
           >
-            <Carousel 
-              images={carouselImages} 
-              currentIndex={carouselIdx} 
-              setCurrentIndex={setCarouselIdx} 
-            />
+            <img src={carouselImages[carouselIdx]} className="w-full h-[500px] object-cover transition-all duration-1000 group-hover:scale-105" alt="Exposição" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
           </motion.div>
         </div>
       </section>
 
-      {/* Services Section */}
-      <section id="services" className="py-16 md:py-20 bg-white dark:bg-gray-800">
-        <div className="container mx-auto px-4">
-          <motion.div
-            className="text-center mb-12 md:mb-16"
+      {/* SERVIÇOS */}
+      <section id="servicos" className="py-24 bg-slate-50">
+        <div className="container mx-auto px-6 text-center mb-16">
+          <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            className="text-4xl font-black text-slate-900 mb-4"
           >
-            <h2 className="section-title text-3xl md:text-4xl font-bold mb-3 text-moyo-primary">Acesso Rápido</h2>
-            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Serviços integrados para uma experiência completa em saúde
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div
+            Nossos Serviços
+          </motion.h2>
+          <div className="w-20 h-1.5 bg-indigo-600 mx-auto rounded-full"></div>
+        </div>
+        <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {servicesData.map((service, idx) => (
+            <motion.div 
+              key={idx}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ delay: idx * 0.1 }}
+              className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all group"
             >
-              <FeatureCard 
-                icon="🩺"
-                title="Atendimento Online"
-                description="Faça sua triagem e agende consultas de forma rápida e segura com nossos profissionais qualificados."
-              />
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <i className={service.icon}></i>
+              </div>
+              <h3 className="text-xl font-bold mb-3">{service.title}</h3>
+              <p className="text-slate-500 leading-relaxed">{service.desc}</p>
             </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            >
-              <FeatureCard 
-                icon="👨‍⚕️"
-                title="Área Médica"
-                description="Acesse fichas de pacientes, histórico médico e controle de atendimentos em um só lugar."
-              />
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-            >
-              <FeatureCard 
-                icon="⏱️"
-                title="Tempo de Espera"
-                description="Consulte tempos reais de espera nas unidades de saúde e planeje sua visita com antecedência."
-              />
-            </motion.div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* About Section */}
-      <section id="about" className="py-16 md:py-20 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row gap-10 items-center">
-          <motion.div 
-            className="flex-1"
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
+      {/* ACERVO DIGITAL */}
+      <section id="artefactos" className="py-24 bg-white">
+        <div className="container mx-auto px-6 mb-12 flex flex-col items-center">
+          <motion.h2 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            className="text-4xl font-black text-slate-900 mb-8"
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-moyo-primary">Tecnologia e Humanização na Gestão da Saúde</h2>
-            <p className="text-gray-700 dark:text-gray-300 text-lg mb-8">
-              O Moyo integra soluções digitais avançadas com uma abordagem centrada no ser humano, transformando a experiência em saúde para pacientes e profissionais. Nossa plataforma conecta tecnologia e cuidado para oferecer um atendimento mais eficiente e humano.
-            </p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                { value: "40%", label: "Redução no tempo de espera" },
-                { value: "80%", label: "Triagem mais precisa com IA" },
-                { value: "95%", label: "Satisfação do paciente" }
-              ].map((stat, idx) => (
-                <motion.div
-                  key={idx}
-                  className="stat bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md flex flex-col items-center"
-                  whileHover={{ y: -5 }}
-                >
-                  <div className="stat-value text-3xl font-bold text-moyo-primary mb-2">{stat.value}</div>
-                  <div className="stat-label text-gray-600 dark:text-gray-300 text-center">{stat.label}</div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-          
-          <motion.div 
-            className="flex-1 w-full"
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-          >
-            <div className="relative">
-              <div className="absolute -inset-4 bg-moyo-primary/10 rounded-2xl transform rotate-3"></div>
-              <Carousel 
-                images={carouselImages} 
-                currentIndex={carouselIdx} 
-                setCurrentIndex={setCarouselIdx} 
-              />
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-16 md:py-20 bg-white dark:bg-gray-800">
-        <div className="container mx-auto px-4">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="section-title text-3xl md:text-4xl font-bold mb-3 text-moyo-primary">Funcionalidades Integradas</h2>
-            <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Tecnologia avançada para uma gestão de saúde completa e eficiente
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { icon: "🤖", title: "Triagem com IA", description: "Classificação automática de prioridades com inteligência artificial para atendimento mais eficiente." },
-              { icon: "📅", title: "Agendamento Inteligente", description: "Sistema de marcação otimizado conforme disponibilidade de profissionais e recursos." },
-              { icon: "📊", title: "Painel Médico", description: "Dashboard completo para acompanhamento de pacientes e gestão de atendimentos." },
-              { icon: "📋", title: "Prontuário Digital", description: "Registros médicos integrados e acessíveis de forma segura em qualquer dispositivo." },
-              { icon: "📱", title: "Acompanhamento Remoto", description: "Monitoramento pós-consulta via dispositivos móveis para melhor acompanhamento." },
-              { icon: "🎓", title: "Educação e Prevenção", description: "Conteúdos personalizados para promoção da saúde e prevenção de doenças." }
-            ].map((feature, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: (idx % 3) * 0.2 }}
+            Acervo Digital
+          </motion.h2>
+          <div className="flex flex-wrap justify-center gap-3">
+            {categories.map((cat) => (
+              <button 
+                key={cat} 
+                onClick={() => setActiveCategory(cat)}
+                className={`px-5 py-2 rounded-full text-sm font-bold transition-all capitalize ${activeCategory === cat ? "bg-indigo-600 text-white shadow-lg" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
               >
-                <div className="h-full">
-                  <FeatureCard 
-                    icon={feature.icon}
-                    title={feature.title}
-                    description={feature.description}
-                  />
-                </div>
-              </motion.div>
+                {cat}
+              </button>
             ))}
           </div>
         </div>
+        <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <AnimatePresence mode="popLayout">
+            {filteredArtifacts.map((item) => (
+              <motion.div 
+                layout
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="group bg-slate-50 rounded-3xl overflow-hidden border border-slate-100 transition-all hover:-translate-y-2"
+              >
+                <div className="h-56 overflow-hidden">
+                  <img src={item.img} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                </div>
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xl font-bold text-slate-900">{item.name}</h3>
+                    <span className="text-xs font-bold px-2 py-1 bg-white rounded border border-slate-200">{item.inv}</span>
+                  </div>
+                  <p className="text-slate-500 text-sm mb-4 leading-relaxed">{item.desc}</p>
+                  <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                    <span className="text-xs uppercase font-black text-indigo-600 tracking-tighter">{item.category}</span>
+                    <i className="fas fa-qrcode text-slate-300"></i>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </section>
 
-      {/* Footer moderno */}
-      <footer id="contact" className="pt-16 pb-10 bg-gray-900 text-gray-300">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-            <div>
-              <motion.div 
-                className="text-2xl font-bold text-moyo-primary mb-4"
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-              >
-                Moyo
-              </motion.div>
-              <p className="mb-6 max-w-xs">
-                Soluções inovadoras para a saúde digital, conectando tecnologia e cuidado humano para transformar a experiência em saúde.
-              </p>
-              <div className="flex gap-3">
-                {["linkedin-in", "youtube", "instagram", "twitter"].map((social, idx) => (
-                  <motion.a
-                    key={social}
-                    href="#"
-                    className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white text-lg hover:bg-moyo-primary transition-all"
-                    whileHover={{ y: -3 }}
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.1 }}
-                  >
-                    <i className={`fab fa-${social}`}></i>
-                  </motion.a>
-                ))}
+      {/* CONTATO */}
+      <section id="contato" className="py-24 bg-slate-900 text-white overflow-hidden relative">
+        <div className="container mx-auto px-6 flex flex-col lg:flex-row gap-16">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="flex-1 space-y-8"
+          >
+            <h2 className="text-4xl font-black">Entre em Contato</h2>
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <i className="fas fa-map-marker-alt text-indigo-400 text-2xl mt-1"></i>
+                <div>
+                  <h4 className="font-bold text-lg">Localização</h4>
+                  <p className="text-slate-400">Angola, Luanda, Rangel, Bairro CTT.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <i className="fas fa-clock text-indigo-400 text-2xl mt-1"></i>
+                <div>
+                  <h4 className="font-bold text-lg">Horário</h4>
+                  <p className="text-slate-400">Segunda a Sábado: 9h – 17h</p>
+                </div>
               </div>
             </div>
-            
-            <div>
-              <h3 className="font-bold text-lg mb-4 text-white">Links Rápidos</h3>
-              <ul className="space-y-3">
-                {["Termos de uso", "Política de privacidade", "Suporte", "FAQ", "Blog"].map((link, idx) => (
-                  <motion.li
-                    key={link}
-                    initial={{ opacity: 0, x: -10 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                  >
-                    <a href="#" className="hover:text-moyo-primary transition-colors">{link}</a>
-                  </motion.li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-bold text-lg mb-4 text-white">Contato</h3>
-              <ul className="space-y-3">
-                {[
-                  { icon: "envelope", text: "contato@moyo.com.br" },
-                  { icon: "phone", text: "(+244) 929 754 355" },
-                  { icon: "map-marker-alt", text: "Luanda - LDA, Angola" },
-                  { icon: "clock", text: "Atendimento: Seg-Sex, 8h-18h" }
-                ].map((item, idx) => (
-                  <motion.li 
-                    key={item.text}
-                    className="flex items-start gap-3"
-                    initial={{ opacity: 0, x: -10 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                  >
-                    <i className={`fas fa-${item.icon} mt-1 text-moyo-primary`}></i>
-                    <span>{item.text}</span>
-                  </motion.li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-bold text-lg mb-4 text-white">Baixe nosso app</h3>
-              <div className="flex flex-col gap-4">
-                {["google-play", "apple"].map((platform, idx) => (
-                  <motion.a
-                    key={platform}
-                    href="#"
-                    className="flex items-center gap-3 px-4 py-3 bg-slate-800 rounded-lg hover:bg-moyo-primary transition-all group"
-                    whileHover={{ y: -3 }}
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ delay: idx * 0.2 }}
-                  >
-                    <i className={`fab fa-${platform} text-2xl ${platform === 'apple' ? 'text-white' : 'text-green-400'} group-hover:text-white`}></i>
-                    <div>
-                      <div className="text-xs text-gray-400 group-hover:text-gray-200">Disponível no</div>
-                      <div className="font-semibold text-white">
-                        {platform === 'google-play' ? 'Google Play' : 'App Store'}
-                      </div>
-                    </div>
-                  </motion.a>
-                ))}
-              </div>
-            </div>
-          </div>
+          </motion.div>
           
-          <div className="text-center text-gray-500 pt-6 border-t border-slate-700">
-            &copy; {new Date().getFullYear()} Moyo. Todos os direitos reservados.
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex-1 bg-white p-8 md:p-12 rounded-[2.5rem] text-slate-900 shadow-2xl"
+          >
+            <h3 className="text-2xl font-bold mb-6">Mensagem Direta</h3>
+            <form className="space-y-4">
+              <input type="text" placeholder="Nome Completo" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all" />
+              <input type="email" placeholder="E-mail" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all" />
+              <textarea placeholder="Sua dúvida ou sugestão..." rows={4} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all resize-none"></textarea>
+              <button className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-xl transition-all">
+                Enviar Mensagem
+              </button>
+            </form>
+          </motion.div>
         </div>
-        
-        {/* Botão de tema flutuante */}
-        <motion.button
-          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-moyo-primary text-white flex items-center justify-center shadow-lg z-50"
-          onClick={() => setDark((d) => !d)}
-          aria-label="Alternar tema"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <i className={`fas ${dark ? "fa-sun" : "fa-moon"}`}></i>
-        </motion.button>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-slate-950 text-slate-500 py-12 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4 text-white text-xl font-black">
+          <i className="fas fa-landmark text-indigo-500"></i> MuseuCom
+        </div>
+        <p className="text-sm">
+          &copy; {new Date().getFullYear()} Museu das Comunicações de Angola.
+        </p>
       </footer>
-      </div>
+
     </div>
   );
 }
