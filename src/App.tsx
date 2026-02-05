@@ -7,7 +7,7 @@ import LandingPage from "./features/LandingPage";
 import CadastroMaterial from './features/CadastroMaterial';
 import Signup from "./features/auth/Signup";
 import UsersPage from './features/Users';
-import DashboardLayout from './features/Dashboard/DashboardLayout';
+import ProfessorLayout from './features/Dashboard/components/ProfessorLayout';
 import UserHome from './features/Dashboard/UserHome';
 import MateriaisPage from './features/Dashboard/materiais';
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
@@ -57,7 +57,7 @@ function App() {
       <Route path="/usuarios" element={<UsersPage />} />
 
       {/* Dashboard (layout com sidebar + navbar) */}
-      <Route path="/dashboard" element={<RequireAuth><ProfessorLayout /></RequireAuth>}>
+      <Route path="/dashboard" element={<ProfessorLayout/>}>
         <Route index element={<UserHome />} />
         <Route path="materiais" element={<MateriaisPage />} />
       </Route>
