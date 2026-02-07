@@ -16,15 +16,14 @@ export default function useProfessor() {
     setLoading(true);
     setError(null);
     try {
-      // Para o sistema do museu usamos a tabela de usuários
-      const res = await api.get('/usuarios');
-      const rows = Array.isArray(res.data) ? res.data : [];
-      if (rows.length) {
-        const row = rows[0];
+      // Buscar o usuário autenticado diretamente via /me
+      const res = await api.get('/me');
+      const row = res.data;
+      if (row && row.id) {
         setProfessor({
           id: Number(row.id),
           nome_completo: row.nome || row.nome_completo || 'Usuário',
-          foto: row.foto || null,
+          foto: (row as any).foto || null,
         });
       } else {
         setProfessor(null);

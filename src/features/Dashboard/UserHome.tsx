@@ -134,11 +134,20 @@ export default function UserHome() {
       setLoading(true);
       setError(null);
       try {
-        // 1) Buscar usuário/museu (usa primeiro usuário disponível como demo)
-        const profRes = await api.get('/usuarios');
-        if (!mounted) return;
-        const profData = Array.isArray(profRes.data) && profRes.data.length ? profRes.data[0] : null;
-        if (profData) setProfessorName(profData.nome || profData.username || 'Museu');
+        // 1) Buscar usuário autenticado (usa /me em vez de listar todos os usuários)
+        try {
+          const profRes = await api.get('/me');
+          if (profRes && profRes.data) {
+            const profData = profRes.data;
+            if (profData) setProfessorName(profData.nome || profData.username || 'Museu');
+          }
+        } catch (e) {
+          // se /me falhar, não interrompe carregamento dos demais dados
+          console.warn('Falha ao obter /me, tentando fallback para /usuarios', e);
+          const profRes = await api.get('/usuarios');
+          const profData = Array.isArray(profRes.data) && profRes.data.length ? profRes.data[0] : null;
+          if (profData) setProfessorName(profData.nome || profData.username || 'Museu');
+        }
 
         // 2) Buscar dashboard (totais)
         const dashRes = await api.get('/dashboard');

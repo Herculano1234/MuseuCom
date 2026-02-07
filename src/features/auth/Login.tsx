@@ -36,6 +36,7 @@ export default function Login() {
       navigate(userRole === "administrador" ? "/admin" : "/dashboard");
     } catch (err: any) {
       setError(err?.response?.data?.error || "Erro ao autenticar.");
+      console.error("Erro ao autenticar", err);
     } finally {
       setLoading(false);
     }

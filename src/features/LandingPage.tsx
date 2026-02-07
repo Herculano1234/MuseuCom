@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // --- DADOS ORIGINAIS PRESERVADOS ---
 const carouselImages = [
-  "https://angolafieldgroup.com/wp-content/uploads/2008/04/maria-pia-hospital1.jpg?w=768",
-  "https://www.makaangola.org/wp-content/uploads/2021/08/hospital-geral-luanda-860x280.jpg",
-  "https://rna.ao/rna.ao/wp-content/uploads/2022/03/5839350E-A2A6-4BB9-B001-0E1AB7331FC5.jpeg"
+  "https://drive.google.com/file/d/1jq77NhzmTqOP4ENGOqWXQZr36gaI4mQL/view?usp=sharing",
+  "https://drive.google.com/file/d/1rT5I7jOLbqP_SmkFuF3uEn0NN6f-K8lY/view?usp=sharing",
+  "https://drive.google.com/file/d/1DBEX1P2Cqtrc5CEN9nR9orGfBvMVFJI1/view?usp=sharing"
 ];
 
 const servicesData = [
