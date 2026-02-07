@@ -2,11 +2,11 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ,
-  timeout: 10000,
+  timeout: 20000,
 });
 
 // Instância sem interceptors para chamadas de auth (refresh) para evitar loops
-const authClient = axios.create({ baseURL: import.meta.env.VITE_API_URL , timeout: 10000 });
+const authClient = axios.create({ baseURL: import.meta.env.VITE_API_URL , timeout: 20000 });
 
 // Adiciona automaticamente o token JWT (se existir) em todas as requisições
 api.interceptors.request.use((config) => {

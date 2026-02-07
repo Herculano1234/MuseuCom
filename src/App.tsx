@@ -7,9 +7,10 @@ import LandingPage from "./features/LandingPage";
 import CadastroMaterial from './features/CadastroMaterial';
 import Signup from "./features/auth/Signup";
 import UsersPage from './features/Users';
-import ProfessorLayout from './features/Dashboard/components/ProfessorLayout';
+import DashboardLayout from './features/Dashboard/DashboardLayout';
 import MateriaisProfPage from './features/Dashboard/materiais';
 import UserHome from './features/Dashboard/UserHome';
+import Estatistica from './features/Dashboard/Estatistica';
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
 import api from './api';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -57,9 +58,10 @@ function App() {
       <Route path="/usuarios" element={<UsersPage />} />
 
       {/* Dashboard (layout com sidebar + navbar) */}
-      <Route path="/dashboard" element={<ProfessorLayout/>}>
+      <Route path="/dashboard" element={<DashboardLayout/>}>
         <Route index element={<UserHome />} />
         <Route path="materiais" element={<MateriaisProfPage />} />
+        <Route path="estatistica" element={<Estatistica />} />
         <Route path="cadastro-material" element={<CadastroMaterial />} />
       </Route>
       {/* Rotas do Profissional */}

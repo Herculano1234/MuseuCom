@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import useProfessor from '../../../hooks/useProfessor';
+import use from '../../../hooks/useProfessor';
 import { useAuth } from '../../../context/AuthContext';
 
 interface Props {
@@ -7,10 +7,10 @@ interface Props {
   title?: string;
 }
 
-export default function ProfNavbar({ onToggleSidebar, title = 'Painel do Museu' }: Props) {
+export default function Navbar({ onToggleSidebar, title = 'Painel do Museu' }: Props) {
   // 1. Hook para gerenciar o estado do menu mobile no navbar
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { professor } = useProfessor();
+  const { professor } = use();
   const { logout } = useAuth();
 
   // Função para alternar o menu mobile

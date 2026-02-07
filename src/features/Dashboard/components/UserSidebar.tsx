@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import useProfessor from '../../../hooks/useProfessor';
+import use from '../../../hooks/useProfessor';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -20,15 +20,15 @@ interface NavLinkItem {
 
 
 const navLinks: NavLinkItem[] = [
-  { to: "/user", icon: "fas fa-home", label: "Início" },
-  { to: "/user/cadastro-material", icon: "fas fa-layer-group", label: "Cadastrar Material" },
-  { to: "/user/materiais", icon: "fas fa-boxes", label: "Materiais" },
-  { to: "/user/estatistica", icon: "fas fa-file-alt", label: "Estatísticas" },
+  { to: "/dashboard", icon: "fas fa-home", label: "Início" },
+  { to: "/dashboard/cadastro-material", icon: "fas fa-layer-group", label: "Cadastrar Material" },
+  { to: "/dashboard/materiais", icon: "fas fa-boxes", label: "Materiais" },
+  { to: "/dashboard/estatistica", icon: "fas fa-file-alt", label: "Estatísticas" },
 ];
 
-export default function ProfSidebar({ isOpen, onClose, onToggleCompact }: Props) {
+export default function Sidebar({ isOpen, onClose, onToggleCompact }: Props) {
   const location = useLocation();
-  const { professor } = useProfessor();
+  const { professor } = use();
   // Novo estado local para gerenciar o modo compactado/expandido no desktop.
   // A lógica de setar este estado deve vir de 'onToggleCompact' no componente pai.
   const [isCompact, setIsCompact] = useState(false); 

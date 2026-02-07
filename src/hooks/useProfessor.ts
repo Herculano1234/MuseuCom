@@ -7,7 +7,7 @@ interface Professor {
   foto?: string | null;
 }
 
-export default function useProfessor() {
+export default function use() {
   const [professor, setProfessor] = useState<Professor | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

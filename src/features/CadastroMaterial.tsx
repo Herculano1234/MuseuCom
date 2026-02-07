@@ -3,6 +3,7 @@ import api from "../api";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import "@fortawesome/fontawesome-free/css/all.min.css";
+import { useToast } from '../components/ToastContext';
 
 // Ícone Landmark em SVG (Base64)
 const LANDMARK_SVG = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjMWUxYjRiIiBkPSJNMTYwIDI1NnYxOTJoMzJWMjU2aC0zMnptMTI4IDB2MTkyaDMyVjI1NmgtMzJ6bS02NCAwdjE5MmgzMlYyNTZoLTMyem0yMjQgMTkyVjI1NmgtMzJ2MTkyaDMyek00OCAyNTZ2MTkyaDMyVjI1Nkg0OHpNMjU2IDBMMCAxMjh2NjRoNTEydi02NEwyNTYgMHpNNTEyIDQ0OEgwVjUxMmg1MTJ2LTY0eiIvPjwvc3ZnPg==";
@@ -11,6 +12,7 @@ export default function CadastroMaterial() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const toast = useToast();
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -20,7 +22,8 @@ export default function CadastroMaterial() {
     numero_serie: "",
     perfil_fabricante: "",
     informacoes_adicionais: "",
-    imagem: null as File | null
+    imagem: null as File | null,
+    pdf: null as File | null
   });
 
   const qrUrl = `https://api.museucom.ao/materiais/${formData.numero_serie || 'pendente'}`;
@@ -37,19 +40,36 @@ export default function CadastroMaterial() {
     }
   };
 
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setFormData({ ...formData, pdf: file });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value) data.append(key, value);
-    });
+    // Append textual fields
+    data.append('nome', formData.nome);
+    data.append('modelo', formData.modelo);
+    data.append('fabricante', formData.fabricante);
+    data.append('ano_fabrico', formData.ano_fabrico);
+    data.append('numero_serie', formData.numero_serie);
+    data.append('perfil_fabricante', formData.perfil_fabricante);
+    data.append('informacoes_adicionais', formData.informacoes_adicionais);
+    // Append files if present
+    if (formData.imagem) data.append('foto', formData.imagem);
+    if (formData.pdf) data.append('pdf', formData.pdf);
 
     try {
       await api.post("/materiais", data);
       setStatus({ type: 'success', msg: "Artefacto catalogado com sucesso!" });
+      try { toast.showToast('Artefacto catalogado com sucesso!', 'success'); } catch(e){}
     } catch (err) {
       setStatus({ type: 'error', msg: "Erro ao salvar material." });
+      try { toast.showToast('Erro ao salvar material.', 'error'); } catch(e){}
     } finally {
       setLoading(false);
     }
@@ -138,6 +158,10 @@ export default function CadastroMaterial() {
                 <div className="sm:col-span-2 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
                   <label className="text-[10px] uppercase font-black text-indigo-600 block mb-2">Imagem do Artefacto</label>
                   <input type="file" accept="image/*" onChange={handleFileChange} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" />
+
+                  <label className="text-[10px] uppercase font-black text-indigo-600 block mb-2 mt-4">Ficha (PDF)</label>
+                  <input type="file" accept="application/pdf" onChange={handlePdfChange} className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-slate-700 file:text-white hover:file:bg-slate-800 cursor-pointer" />
+                  {formData.pdf && <div className="mt-2 text-xs text-gray-600">Arquivo: {String(formData.pdf.name)}</div>}
                 </div>
 
                 <div className="sm:col-span-2 space-y-1">

@@ -3,15 +3,11 @@ import { motion } from 'framer-motion'; // Importação essencial para animaçõ
 import {
   Users,
   PlayCircle,
-  Clock,
-  CheckCircle,
   FileText,
   Package,
-  Bell,
+  
   BarChart,
   PieChart,
-  AlertTriangle,
-  FileWarning,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -27,12 +23,6 @@ interface StatCardProps {
   link: string;
 }
 
-interface Notification {
-    type: string;
-    message: string;
-    icon: LucideIcon;
-    color: string;
-}
 
 // Estado dinâmico: vamos buscar do backend via `api.ts`
 import api from '../../api';
@@ -40,7 +30,7 @@ import api from '../../api';
 // Estado inicial simples — os dados reais chegam via chamadas HTTP
 const initialIndicators: StatCardProps[] = [];
 
-const initialNotifications: Notification[] = [];
+// Obs: removemos o bloco de "Alertas Pendentes" — mantemos apenas indicadores
 
 // Componente Card com Animações (motion.a)
 const StatCard: React.FC<StatCardProps> = ({ 
@@ -123,7 +113,8 @@ const itemVariants = {
 export default function UserHome() {
   const [professorName, setProfessorName] = useState<string>('Carregando...');
   const [indicators, setIndicators] = useState<StatCardProps[]>(initialIndicators);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [materialCount, setMaterialCount] = useState<number>(0);
+  const [mostViewed, setMostViewed] = useState<{ nome: string; views: number | null } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,9 +144,39 @@ export default function UserHome() {
         const dashRes = await api.get('/dashboard');
         const dash = dashRes.data || {};
 
-        // 3) Buscar relatórios para montar notificações básicas
-        const relRes = await api.get('/relatorios');
-        const rels = Array.isArray(relRes.data) ? relRes.data : [];
+        
+
+        // 4) Buscar materiais para contar e calcular o mais visto da semana (melhor esforço)
+        let mats: any[] = [];
+        try {
+          const matsRes = await api.get('/materiais');
+          mats = Array.isArray(matsRes.data) ? matsRes.data : [];
+        } catch (e) {
+          mats = [];
+        }
+        const matCount = mats.length;
+        setMaterialCount(matCount);
+
+        // Determina o material mais visto por heurística: procura chaves comuns
+        if (mats.length > 0) {
+          const sortKeys = ['views_week', 'visualizacoes_semana', 'views', 'visualizacoes'];
+          let candidate: any = mats[0];
+          for (const key of sortKeys) {
+            const has = mats.some(m => m && (m[key] !== undefined && m[key] !== null));
+            if (has) {
+              candidate = mats.slice().sort((a,b) => Number(b[key]||0) - Number(a[key]||0))[0];
+              setMostViewed({ nome: candidate.nome_material || candidate.nome || candidate.title || '—', views: Number(candidate[key] || 0) });
+              break;
+            }
+          }
+          if (!mostViewed) {
+            // fallback: escolhe o primeiro material (sem contagem de views)
+            const first = mats[0];
+            setMostViewed({ nome: first.nome_material || first.nome || '—', views: null });
+          }
+        } else {
+          setMostViewed(null);
+        }
 
         // Monta indicadores a partir dos dados do backend
         const newIndicators: StatCardProps[] = [
@@ -169,15 +190,6 @@ export default function UserHome() {
             link: '/usuarios'
           },
           {
-            title: 'Empréstimos Ativos',
-            value: Number(dash.emprestimos_abertos || 0),
-            description: 'Materiais atualmente emprestados.',
-            Icon: Package,
-            color: 'border-blue-800',
-            action: 'Gerir Empréstimos',
-            link: '/materiais/emprestimos'
-          },
-          {
             title: 'Total de Materiais',
             value: Number(dash.total_materiais || 0),
             description: 'Itens catalogados no inventário.',
@@ -187,28 +199,11 @@ export default function UserHome() {
             link: '/materiais'
           },
           // Complementamos com indicadores derivados localmente (ex.: relatórios pendentes)
-          {
-            title: 'Relatórios Aguardando Revisão',
-            value: rels.length,
-            description: 'Relatórios submetidos, precisam de sua análise.',
-            Icon: FileText,
-            color: 'border-red-600',
-            action: 'Avaliar',
-            link: '/relatorios'
-          }
+         
         ];
-
-        // Monta notificações com os relatórios mais recentes
-        const newNotifications: Notification[] = rels.slice(0, 6).map((r: any) => ({
-          type: 'Relatório',
-          message: `Relatório: ${r.titulo || 'Sem título'} — ${r.conteudo ? String(r.conteudo).slice(0, 80) + '...' : ''}`,
-          icon: FileText,
-          color: 'text-sky-500'
-        }));
 
         if (!mounted) return;
         setIndicators(newIndicators);
-        setNotifications(newNotifications);
       } catch (err: any) {
         console.error('Erro ao carregar dados do ProfessorHome', err);
         console.error('Resposta do servidor:', err?.response?.data ?? err?.response);
@@ -238,126 +233,41 @@ export default function UserHome() {
       {/* Conteúdo Principal */}
       <main className="max-w-7xl mx-auto py-0 px-4 sm:px-6 lg:px-8">
         
-        {/* Saudação e Notificações Rápidas */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Painel de Controle
-          </h1>
-          
-          {/* Alertas Rápidos com Animação de Pulse e Hover */}
-          <motion.div
-            className="flex items-center text-sm text-gray-700 dark:text-gray-400 p-3 border border-red-400 dark:border-red-600 rounded-lg bg-white dark:bg-gray-800 shadow-md cursor-pointer transition duration-300 hover:shadow-lg hover:border-red-500"
-            animate={{ scale: [1, 1.05, 1] }} // Animação sutil de pulso para chamar atenção
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Bell className="w-5 h-5 mr-2 text-red-500" />
-            <span className="font-semibold text-red-600 dark:text-red-400">{notifications.length} Alertas Pendentes</span>
-          </motion.div>
+        {/* Saudação */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Painel de Controle</h1>
         </div>
 
-        {/* 1. Indicadores Principais - Painel de Resumo */}
-        <motion.section 
-            className="mb-10"
-            variants={containerVariants}
-        >
-          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2 border-gray-200 dark:border-gray-700">Resumo Geral</h2>
-          
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {loading ? (
-              <div className="text-gray-500">Carregando indicadores...</div>
-            ) : (
-              indicators.map((indicator, index) => (
-                <motion.div key={index} variants={itemVariants}>
-                  <StatCard {...indicator} />
-                </motion.div>
-              ))
-            )}
-          </div>
-        </motion.section>
-
-        {/* 2. Gráficos e Notificações - Layout em 3 Colunas (2:1) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Seção de Análise (2/3 da largura em desktop) */}
-          <section className="lg:col-span-2 space-y-6">
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2 border-gray-700">Análise e Distribuição</h2>
-            
-            {/* Gráfico de Distribuição de Estágios (Pizza) */}
-            <motion.div 
-                className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg transition duration-300 hover:shadow-xl"
-                variants={itemVariants}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Distribuição de Estágios</h3>
-                <PieChart className="w-5 h-5 text-sky-500" />
+        {/* Top Cards: Quantidade de Materiais e Material Mais Visto da Semana */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Materiais Cadastrados</h3>
+            <div className="mt-3 flex items-center justify-between">
+              <div>
+                <div className="text-3xl font-bold text-gray-900 dark:text-white">{loading ? '...' : materialCount}</div>
+                <div className="text-xs text-gray-500">Total de materiais no inventário</div>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Simulação: Ativos (73%), Pendentes (13%), Concluídos (14%).
-              </p>
-              <div className="h-48 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg mt-4">
-                <span className="text-gray-400">Placeholder: Gráfico de Pizza</span>
-              </div>
-            </motion.div>
-
-            {/* Gráfico de Relatórios por Semana (Barras) */}
-            <motion.div 
-                className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg transition duration-300 hover:shadow-xl"
-                variants={itemVariants}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Relatórios Submetidos por Semana</h3>
-                <BarChart className="w-5 h-5 text-green-500" />
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Média de 12 relatórios submetidos por semana no último mês.
-              </p>
-              <div className="h-48 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg mt-4">
-                <span className="text-gray-400">Placeholder: Gráfico de Barras</span>
-              </div>
-            </motion.div>
-          </section>
-
-          {/* 3. Seção de Notificações Recentes (1/3 da largura em desktop) */}
-          <motion.section 
-              className="lg:col-span-1"
-              variants={itemVariants}
-          >
-            <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-4 border-b pb-2 border-gray-700">Alertas e Ações Pendentes</h2>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg space-y-4">
-              {loading ? (
-                <div className="text-sm text-gray-500">Carregando notificações...</div>
-              ) : (
-                notifications.map((notif, index) => (
-                  <motion.div 
-                    key={index} 
-                    className="flex items-start space-x-3 pb-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 last:pb-0 
-                               transition duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 p-2 -m-2 rounded-lg cursor-pointer"
-                    whileHover={{ x: 5 }} // Efeito de deslizamento no hover
-                  >
-                    <notif.icon className={`w-5 h-5 flex-shrink-0 mt-1 ${notif.color}`} />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{notif.type}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{notif.message}</p>
-                    </div>
-                  </motion.div>
-                ))
-              )}
-              <div className="pt-2">
-                <a href="/notificacoes" className="text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition duration-150">
-                  Ver todas as notificações
-                </a>
-              </div>
+              <Package className="w-10 h-10 text-sky-500" />
             </div>
-          </motion.section>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Material Mais Visto (Semana)</h3>
+            <div className="mt-3">
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">{mostViewed ? mostViewed.nome : (loading ? 'Carregando...' : 'Nenhum material')}</div>
+              <div className="text-sm text-gray-500 mt-1">{mostViewed && mostViewed.views !== null ? `${mostViewed.views} visualizações esta semana` : 'Dados de visualizações não disponíveis'}</div>
+            </div>
+          </div>
         </div>
+
+
       </main>
 
       {/* Rodapé Institucional */}
       <footer className="bg-gray-100 dark:bg-gray-950 mt-12 border-t border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="text-center text-xs text-gray-500 dark:text-gray-600 space-y-2 sm:space-y-0 sm:space-x-4">
-            <span>© {new Date().getFullYear()} Smart Lab.</span>
+            <span>© {new Date().getFullYear()}MuseuCom.</span>
             <span className="hidden sm:inline text-gray-400 dark:text-gray-700">|</span>
             <div className='inline-block sm:inline'>
                 <a href="/privacidade" className="hover:text-gray-700 dark:hover:text-white transition px-2">Política de Privacidade</a>

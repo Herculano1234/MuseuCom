@@ -25,31 +25,22 @@ type MaterialType = string;
 
 interface Material {
   id: number;
+  // Core DB columns (init_db.sql)
+  nome_material: string; // maps to `nome` in DB
+  numero_serie?: string | null;
+  modelo?: string | null;
+  fabricante?: string | null;
+  data_fabrico?: string | null;
+  infor_ad?: string | null;
+  perfil_fabricante?: string | null;
+  foto?: string | null; // base64 or data URL
+  pdf?: string | null; // base64 or data URL
+  created_at?: string | null;
+  // legacy / UI helpers
   code_id?: string | null;
-  nome_material: string;
-  nome_tipo?: string | null; // joined from tipos_materiais.nome_tipo
+  nome_tipo?: string | null;
   id_tipo_material?: number | null;
   descricao?: string | null;
-  foto?: string | null;
-  created_at?: string | null;
-}
-
-// NOVO TIPO: Adicionado para acomodar os dados do visitante e a seleção
-interface VisitanteFormFields {
-  id_beneficiario?: number | null; // Usado para controlar a seleção no dropdown (ID do usuário ou -1 para visitante)
-  id_usuario?: number | null; // ID real do usuário (será null se for visitante)
-  data_inicio?: string;
-  data_final?: string | null;
-
-  // Campos do VISITANTE (existirão se id_beneficiario for -1)
-  nome_visitante?: string | null;
-  genero_visitante?: 'Masculino' | 'Feminino' | string | null;
-  numero_processo_visitante?: string | null;
-  telefone_visitante?: string | null;
-  email_visitante?: string | null;
-  morada_visitante?: string | null;
-  curso_visitante?: string | null;
-  turma_visitante?: string | null;
 }
 
 
@@ -126,13 +117,22 @@ export default function MateriaisProfPage() {
       if (Array.isArray(res.data)) {
         const normalized = res.data.map((r:any) => ({
           id: Number(r.id),
+          // DB fields
+          nome_material: r.nome || r.nome_material || '—',
+          numero_serie: r.numero_serie ?? null,
+          modelo: r.modelo ?? null,
+          fabricante: r.fabricante ?? null,
+          data_fabrico: r.data_fabrico ?? null,
+          infor_ad: r.infor_ad ?? null,
+          perfil_fabricante: r.perfil_fabricante ?? null,
+          foto: r.foto || null,
+          pdf: r.pdf || r.pdf_url || null,
+          created_at: r.created_at || null,
+          // legacy/UI helpers
           code_id: r.code_id || null,
-          nome_material: r.nome_material || r.nome || '—',
           nome_tipo: r.nome_tipo || null,
           id_tipo_material: r.id_tipo_material ?? null,
-          descricao: r.descricao ?? null,
-          foto: r.foto || r.foto || null,
-          created_at: r.created_at || null,
+          descricao: r.descricao ?? r.infor_ad ?? null,
         } as Material));
         setMateriais(normalized);
       } else {
@@ -149,38 +149,7 @@ export default function MateriaisProfPage() {
 
   useEffect(() => { reloadMateriais(); }, []);
 
-  // Load usuarios once for emprestimo modal
-  const [usuariosList, setUsuariosList] = useState<Array<any>>([]);
-  const [empModalOpen, setEmpModalOpen] = useState(false);
-  // ESTADO ATUALIZADO para usar o novo tipo VisitanteFormFields
-  const [empForm, setEmpForm] = useState<VisitanteFormFields | null>(null);
-  
-  // NOVO ESTADO: Termo de busca para a lista de beneficiários
-  const [beneficiarioSearchTerm, setBeneficiarioSearchTerm] = useState('');
-
-  useEffect(() => {
-    async function loadUsuarios() {
-      try {
-        const res = await api.get('/usuarios');
-        if (Array.isArray(res.data)) setUsuariosList(res.data);
-      } catch (err) {
-        console.warn('Não foi possível carregar usuários para empréstimo', err);
-      }
-    }
-    loadUsuarios();
-  }, []);
-  
-  // NOVA LÓGICA: Lista de Estagiários filtrada
-    const filteredUsuariosList = useMemo(() => {
-      if (!beneficiarioSearchTerm) {
-        return usuariosList;
-      }
-      const lowerSearch = beneficiarioSearchTerm.toLowerCase();
-      // Filtra por nome ou nome_completo
-      return usuariosList.filter((u: any) =>
-        (u.nome || u.nome_completo || `#${u.id}`).toLowerCase().includes(lowerSearch)
-      );
-    }, [usuariosList, beneficiarioSearchTerm]);
+  // (Empréstimo/beneficiário removido) – lista de usuários não mais carregada aqui
 
 
   // Lógica de Filtragem e Busca (sem alteração)
@@ -216,7 +185,8 @@ export default function MateriaisProfPage() {
     </div>
   );
 
-  const availableTypes = useMemo(() => Array.from(new Set(materiais.map(m => m.nome_tipo).filter(Boolean))), [materiais]);
+  // Filtragem por fabricante (substitui filtro por tipo)
+  const availableTypes = useMemo(() => Array.from(new Set(materiais.map(m => m.fabricante).filter(Boolean))), [materiais]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -235,8 +205,8 @@ export default function MateriaisProfPage() {
 
         {/* NOVO BOTÃO: Cadastrar Material (Item animado) */}
         <motion.button 
-            variants={itemVariants} 
-            onClick={() => navigate('/cadastro-material')}
+          variants={itemVariants} 
+          onClick={() => navigate('/dashboard/cadastro-material')}
             className="mb-6 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-200 flex items-center space-x-2"
             whileHover={{ scale: 1.05 }} 
         >
@@ -270,7 +240,7 @@ export default function MateriaisProfPage() {
               {/* Controles de Filtro */}
                 <div className="space-y-4 pt-2">
                 {renderFilterButtons(
-                  "Tipo",
+                  "Fabricante",
                   availableTypes as string[],
                   filterType,
                   setFilterType
@@ -303,9 +273,10 @@ export default function MateriaisProfPage() {
                   <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Tipo</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Código</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Número de Série</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Modelo</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Criado em</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Ficha (PDF)</th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
@@ -344,19 +315,26 @@ export default function MateriaisProfPage() {
                           
                           {/* Coluna 2: Tipo (Oculta em telas muito pequenas) */}
                           <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                              {m.nome_tipo ?? '—'}
-                            </span>
+                            <div className="text-sm text-gray-700 dark:text-gray-300">{m.numero_serie ?? '—'}</div>
                           </td>
                           
                           {/* Coluna 3: Código (visible on sm+) */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center hidden sm:table-cell">
-                            <div className="text-gray-700 dark:text-gray-300">{m.code_id ?? m.id}</div>
+                            <div className="text-gray-700 dark:text-gray-300">{m.modelo ?? '—'}</div>
                           </td>
                           
                           {/* Coluna 4: Criado em */}
                           <td className="px-6 py-4 whitespace-nowrap text-center hidden sm:table-cell">
                             <div className="text-gray-700 dark:text-gray-300 text-sm">{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</div>
+                          </td>
+
+                          {/* Coluna PDF: mostra link se disponível */}
+                          <td className="px-6 py-4 whitespace-nowrap text-center hidden sm:table-cell">
+                            {m.pdf ? (
+                              <a href={m.pdf} target="_blank" rel="noreferrer" className="text-sky-600 hover:text-sky-800 underline text-sm">Ver PDF</a>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
                           
                           {/* Coluna 5: Ações */}
@@ -365,27 +343,7 @@ export default function MateriaisProfPage() {
                               <motion.button title="Ver Detalhes" className="p-2 text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition" whileHover={{ scale: 1.15 }} onClick={(ev)=>{ ev.stopPropagation(); setSelectedMaterial(m); setIsEditing(false); setFormState(null); }}><Eye className="w-5 h-5" /></motion.button>
                               
                               {/* ATUALIZAÇÃO: Inicialização do empForm */}
-                              <motion.button title="Registrar Empréstimo" className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 transition" whileHover={{ scale: 1.15 }} onClick={(ev)=>{ 
-                                ev.stopPropagation(); 
-                                setSelectedMaterial(m); 
-                                setEmpModalOpen(true); 
-                                const now = new Date(); 
-                                const defaultStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`; 
-                                const defaultEnd = toLocalDateTimeInput(new Date(now.getTime()+60*60*1000)); 
-                                
-                                // Inicializa com id_beneficiario (para a seleção) e id_usuario
-                                const initialUsuarioId = usuariosList?.[0]?.id ?? null;
-                                setEmpForm({ 
-                                  id_beneficiario: initialUsuarioId, 
-                                  id_usuario: initialUsuarioId,
-                                  data_inicio: defaultStart, 
-                                  data_final: defaultEnd 
-                                }); 
-                                // Limpa o termo de busca do beneficiário
-                                setBeneficiarioSearchTerm('');
-                              }}>
-                                <Send className="w-5 h-5" />
-                              </motion.button>
+                              {/* Empréstimo removed per request */}
                               
                               <motion.button title="Editar Informações" className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition" whileHover={{ scale: 1.15 }} onClick={(ev)=>{ ev.stopPropagation(); setSelectedMaterial(m); setIsEditing(true); setFormState({ ...m }); }}><Edit className="w-5 h-5" /></motion.button>
                             </div>
@@ -425,12 +383,16 @@ export default function MateriaisProfPage() {
                     {/* Conteúdo / Form */}
                     {!isEditing ? (
                       <div className="space-y-4">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{selectedMaterial.descricao || '—'}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">{selectedMaterial.infor_ad || selectedMaterial.descricao || '—'}</p>
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="text-sm text-gray-500">Código</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.code_id ?? selectedMaterial.id}</div>
-                          <div className="text-sm text-gray-500">Tipo</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.nome_tipo ?? '—'}</div>
+                          <div className="text-sm text-gray-500">Número de Série</div>
+                          <div className="text-sm text-gray-900">{selectedMaterial.numero_serie ?? '—'}</div>
+                          <div className="text-sm text-gray-500">Modelo</div>
+                          <div className="text-sm text-gray-900">{selectedMaterial.modelo ?? '—'}</div>
+                          <div className="text-sm text-gray-500">Fabricante</div>
+                          <div className="text-sm text-gray-900">{selectedMaterial.fabricante ?? '—'}</div>
+                          <div className="text-sm text-gray-500">Data Fabrico</div>
+                          <div className="text-sm text-gray-900">{selectedMaterial.data_fabrico ? new Date(selectedMaterial.data_fabrico).toLocaleDateString() : '—'}</div>
                         </div>
                       </div>
                     ) : (
@@ -439,20 +401,36 @@ export default function MateriaisProfPage() {
                           <label className="text-sm text-gray-500">Nome</label>
                           <input className="w-full p-2 mt-1 rounded border" value={formState?.nome_material ?? selectedMaterial.nome_material ?? ''} onChange={(e)=> setFormState(s => ({ ...(s||{}), nome_material: e.target.value }))} />
                         </div>
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-sm text-gray-500">Código (code_id)</label>
-                            <input className="w-full p-2 mt-1 rounded border" value={formState?.code_id ?? (selectedMaterial.code_id ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), code_id: e.target.value }))} />
+                            <label className="text-sm text-gray-500">Número de Série</label>
+                            <input className="w-full p-2 mt-1 rounded border" value={formState?.numero_serie ?? (selectedMaterial.numero_serie ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), numero_serie: e.target.value }))} />
                           </div>
                           <div>
-                            <label className="text-sm text-gray-500">Tipo (não editável)</label>
-                            <input className="w-full p-2 mt-1 rounded border bg-gray-50 dark:bg-gray-700" disabled value={selectedMaterial.nome_tipo ?? (String(selectedMaterial.id_tipo_material) || '')} />
+                            <label className="text-sm text-gray-500">Modelo</label>
+                            <input className="w-full p-2 mt-1 rounded border" value={formState?.modelo ?? (selectedMaterial.modelo ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), modelo: e.target.value }))} />
                           </div>
                         </div>
 
                         <div>
-                          <label className="text-sm text-gray-500">Descrição</label>
-                          <textarea className="w-full p-2 mt-1 rounded border" rows={4} value={formState?.descricao ?? (selectedMaterial.descricao ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), descricao: e.target.value }))} />
+                          <label className="text-sm text-gray-500">Fabricante</label>
+                          <input className="w-full p-2 mt-1 rounded border" value={formState?.fabricante ?? (selectedMaterial.fabricante ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), fabricante: e.target.value }))} />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-gray-500">Data de Fabrico</label>
+                          <input type="date" className="w-full p-2 mt-1 rounded border" value={formState?.data_fabrico ?? (selectedMaterial.data_fabrico ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), data_fabrico: e.target.value }))} />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-gray-500">Informações Adicionais</label>
+                          <textarea className="w-full p-2 mt-1 rounded border" rows={4} value={formState?.infor_ad ?? (selectedMaterial.infor_ad ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), infor_ad: e.target.value }))} />
+                        </div>
+
+                        <div>
+                          <label className="text-sm text-gray-500">Perfil do Fabricante</label>
+                          <textarea className="w-full p-2 mt-1 rounded border" rows={3} value={formState?.perfil_fabricante ?? (selectedMaterial.perfil_fabricante ?? '')} onChange={(e)=> setFormState(s => ({ ...(s||{}), perfil_fabricante: e.target.value }))} />
                         </div>
 
                         <div>
@@ -475,17 +453,41 @@ export default function MateriaisProfPage() {
                           )}
                         </div>
 
+                        <div>
+                          <label className="text-sm text-gray-500">Ficha (PDF)</label>
+                          <input type="file" accept="application/pdf" className="w-full mt-1" onChange={async (e) => {
+                            const file = e.currentTarget.files?.[0];
+                            if (!file) return;
+                            try {
+                              const dataUrl = await readFileAsDataURL(file);
+                              setFormState(s => ({ ...(s||{}), pdf: dataUrl }));
+                            } catch(err) {
+                              console.error('Erro ao ler PDF', err);
+                              try { toast.showToast('Não foi possível ler o PDF selecionado', 'error'); } catch(e){}
+                            }
+                          }} />
+                          {(formState?.pdf || selectedMaterial.pdf) && (
+                            <div className="mt-2">
+                              <a className="text-sky-600 underline" href={formState?.pdf ?? selectedMaterial.pdf ?? '#'} target="_blank" rel="noreferrer">Abrir Ficha PDF</a>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex justify-end space-x-2">
                           <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => { setIsEditing(false); setFormState(null); }}>Cancelar</button>
                           <button className="px-4 py-2 bg-sky-600 text-white rounded" onClick={async ()=>{
                             if (!formState) return;
                             try {
                               const payload:any = {};
-                              if (formState.nome_material !== undefined) payload.nome_material = formState.nome_material;
-                              if (formState.code_id !== undefined) payload.code_id = formState.code_id;
-                              // id_tipo_material is intentionally not editable from this modal
-                              if (formState.descricao !== undefined) payload.descricao = formState.descricao;
+                              if (formState.nome_material !== undefined) payload.nome = formState.nome_material;
+                              if (formState.numero_serie !== undefined) payload.numero_serie = formState.numero_serie;
+                              if (formState.modelo !== undefined) payload.modelo = formState.modelo;
+                              if (formState.fabricante !== undefined) payload.fabricante = formState.fabricante;
+                              if (formState.data_fabrico !== undefined) payload.data_fabrico = formState.data_fabrico;
+                              if (formState.infor_ad !== undefined) payload.infor_ad = formState.infor_ad;
+                              if (formState.perfil_fabricante !== undefined) payload.perfil_fabricante = formState.perfil_fabricante;
                               if (formState.foto !== undefined) payload.foto = formState.foto;
+                              if (formState.pdf !== undefined) payload.pdf = formState.pdf;
                               await api.put(`/materiais/${encodeURIComponent(selectedMaterial.id)}`, payload);
                               // Atualiza localmente
                               await reloadMateriais();
@@ -505,269 +507,10 @@ export default function MateriaisProfPage() {
               )}
             </AnimatePresence>
 
-            {/* Modal de Registrar Empréstimo (COM BUSCA E SCROLL - REAPLICADO) */}
-            <AnimatePresence>
-              {empModalOpen && selectedMaterial && (
-                <motion.div
-                  className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <div className="absolute inset-0 bg-black/50" onClick={() => { setEmpModalOpen(false); setEmpForm(null); }} />
-                  <motion.div
-                    // MUDANÇA ESSENCIAL PARA SCROLL: Adiciona flex-col e max-h-[90vh] para limitar a altura do modal à tela
-                    className="relative bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 z-10 shadow-2xl flex flex-col max-h-[90vh]" 
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 20, opacity: 0 }}
-                  >
-                    {/* Cabeçalho Fixo */}
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registrar Empréstimo</h3>
-                    <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                      Material: <span className="font-medium">{selectedMaterial.nome_material}</span>
-                    </div>
-
-                    {/* Corpo do Formulário Scrollável */}
-                    {/* MUDANÇA ESSENCIAL PARA SCROLL: Adiciona overflow-y-auto e flex-grow para permitir scroll no conteúdo */}
-                    <div className="space-y-4 overflow-y-auto flex-grow pr-2 -mr-2"> 
-                      {/* Campo de Seleção de Estagiário/Visitante COM BUSCA */}
-                      <div>
-                        <label className="text-sm text-gray-500">Beneficiário</label>
-                        {/* Input de Busca para o beneficiário */}
-                        <div className="relative mb-2">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Buscar usuário por nome..."
-                            value={beneficiarioSearchTerm}
-                            onChange={(e) => setBeneficiarioSearchTerm(e.target.value)}
-                            className="w-full pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white text-sm"
-                          />
-                        </div>
-
-                        {/* Select principal */}
-                        <select
-                          className="w-full p-2 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          value={empForm?.id_beneficiario ?? ''} // Usamos id_beneficiario para ser genérico
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            const isVisitante = value === '-1';
-                            
-                            setEmpForm(s => ({ 
-                              ...(s || {}), 
-                              id_beneficiario: value ? Number(value) : null,
-                              id_usuario: isVisitante ? null : (value ? Number(value) : null),
-                              // Reinicia os campos de visitante se mudar de 'Visitante' para 'Estagiário'
-                              ...(!isVisitante ? { 
-                                nome_visitante: null, 
-                                genero_visitante: null, 
-                                telefone_visitante: null, 
-                                email_visitante: null, 
-                                morada_visitante: null, 
-                                curso_visitante: null, 
-                                turma_visitante: null, 
-                                numero_processo_visitante: null 
-                              } : {})
-                            }));
-                          }}
-                        >
-                          <option value="">Selecione um beneficiário...</option>
-                          {/* Usa a lista filtrada */}
-                          {filteredUsuariosList.map((u: any) => (
-                            <option key={u.id} value={u.id}>
-                              {u.nome || u.nome_completo || `#${u.id}`}
-                            </option>
-                          ))}
-                          {/* Opção para Visitante (usamos valor -1 para indicar visitante) */}
-                          <option value="-1">
-                            **Visitante**
-                          </option>
-                        </select>
-                      </div>
-
-                      {/* Campos Adicionais para Visitante (LAYOUT MELHORADO) */}
-                      {(empForm?.id_beneficiario === -1) && (
-                        // NOVO ESTILO E LAYOUT DE GRID
-                        <div className="space-y-4 p-4 border border-blue-400 border-dashed bg-blue-50 dark:bg-gray-700/50 rounded-lg">
-                          <h4 className="text-md font-bold text-blue-600 dark:text-blue-300">Detalhes do Visitante (Obrigatório *)</h4>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              
-                              {/* Nome */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Nome <span className="text-red-500">*</span></label>
-                                  <input type="text" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.nome_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), nome_visitante: e.target.value }))}
-                                  />
-                              </div>
-
-                              {/* Gênero */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Gênero <span className="text-red-500">*</span></label>
-                                  <select className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.genero_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), genero_visitante: e.target.value }))}
-                                  >
-                                      <option value="">Selecione</option>
-                                      <option value="Masculino">Masculino</option>
-                                      <option value="Feminino">Feminino</option>
-                                  </select>
-                              </div>
-
-                              {/* Telefone */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Telefone</label>
-                                  <input type="tel" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.telefone_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), telefone_visitante: e.target.value }))}
-                                  />
-                              </div>
-                              
-                              {/* Email */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Email</label>
-                                  <input type="email" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.email_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), email_visitante: e.target.value }))}
-                                  />
-                              </div>
-
-                              {/* Curso */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Curso</label>
-                                  <input type="text" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.curso_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), curso_visitante: e.target.value }))}
-                                  />
-                              </div>
-
-                              {/* Turma */}
-                              <div>
-                                  <label className="text-sm text-gray-500">Turma</label>
-                                  <input type="text" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.turma_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), turma_visitante: e.target.value }))}
-                                  />
-                              </div>
-
-                              {/* Processo (Ocupa a linha toda em telas pequenas, mas só metade em telas maiores) */}
-                              <div className="sm:col-span-2">
-                                  <label className="text-sm text-gray-500">Número de Processo (Opcional)</label>
-                                  <input type="text" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                      value={empForm?.numero_processo_visitante ?? ''}
-                                      onChange={(e) => setEmpForm(s => ({ ...(s || {}), numero_processo_visitante: e.target.value }))}
-                                  />
-                              </div>
-                          </div>
-
-                          {/* Morada (Campo Longo - Ocupa a linha toda) */}
-                          <div>
-                              <label className="text-sm text-gray-500">Morada</label>
-                              <textarea className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                  value={empForm?.morada_visitante ?? ''}
-                                  rows={2}
-                                  onChange={(e) => setEmpForm(s => ({ ...(s || {}), morada_visitante: e.target.value }))}
-                              />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Campos de Data (Visíveis para Usuário e Visitante) */}
-                      <div>
-                        <label className="text-sm text-gray-500">Data Início</label>
-                        <input type="date" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white" value={empForm?.data_inicio ?? ''} onChange={(e)=> setEmpForm(s => ({ ...(s||{}), data_inicio: e.target.value }))} />
-                      </div>
-
-                      <div>
-                        <label className="text-sm text-gray-500">Data de Entrega (com horário)</label>
-                        <input type="datetime-local" className="w-full p-2 mt-1 rounded border bg-white dark:bg-gray-700 text-gray-900 dark:text-white" value={empForm?.data_final ?? ''} onChange={(e)=> setEmpForm(s => ({ ...(s||{}), data_final: e.target.value }))} />
-                      </div>
-                    </div>
-                    
-                    {/* Rodapé Fixo com Botões */}
-                    <div className="flex justify-end space-x-2 pt-4 border-t dark:border-gray-700 mt-4">
-                        <button className="px-4 py-2 bg-gray-200 rounded text-gray-800 dark:bg-gray-700 dark:text-white" onClick={() => { setEmpModalOpen(false); setEmpForm(null); }}>Cancelar</button>
-                        <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={async ()=>{
-                            const isVisitante = empForm?.id_beneficiario === -1;
-                            
-                            // Validação para Usuário
-                            if (!isVisitante && (!empForm?.id_beneficiario || empForm?.id_beneficiario <= 0)) { 
-                              try { toast.showToast('Selecione um usuário ou visitante antes de continuar', 'info'); } catch(e){}; return; 
-                            }
-                            
-                            // Validação mínima para Visitante
-                            if (isVisitante && (!empForm?.nome_visitante || !empForm?.genero_visitante)) {
-                                 try { toast.showToast('Preencha o Nome e Gênero do Visitante', 'info'); } catch(e){}; return;
-                            }
-
-                            try {
-                              const payload:any = {
-                                id_material: selectedMaterial.id,
-                                
-                                data_inicio: formatDateOnly(empForm.data_inicio) ?? formatDateOnly(new Date().toISOString()),
-                                data_final: formatDateOnly(empForm.data_final) ?? null,
-                                
-                                // Determina o payload com base na seleção
-                                ...(isVisitante ? {
-                                  id_usuario: null, // Assegura que id_usuario é nulo ou ausente
-                                    // Campos de visitante a serem enviados para a API (o backend precisa lidar com eles)
-                                    nome_visitante: empForm.nome_visitante,
-                                    genero_visitante: empForm.genero_visitante,
-                                    numero_processo_visitante: empForm.numero_processo_visitante,
-                                    telefone_visitante: empForm.telefone_visitante,
-                                    email_visitante: empForm.email_visitante,
-                                    morada_visitante: empForm.morada_visitante,
-                                    curso_visitante: empForm.curso_visitante,
-                                    turma_visitante: empForm.turma_visitante,
-                                } : {
-                                  id_usuario: empForm.id_beneficiario, // Se não for -1, é o ID do usuário
-                                }),
-                              };
-                              
-                              await api.post('/emprestimos', payload);
-                              try { toast.showToast('Empréstimo registrado com sucesso', 'success'); } catch(e){}
-                              setEmpModalOpen(false);
-                              setEmpForm(null);
-                              await reloadMateriais();
-                            } catch (err:any) {
-                              console.error('Erro ao registrar empréstimo', err);
-                              try { toast.showToast('Erro ao registrar empréstimo: ' + (err?.response?.data?.error || err?.message || ''), 'error'); } catch(e){}
-                            }
-                        }}>Registrar</button>
-                      </div>
-                    
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Empréstimo feature removed */}
 
             {/* 3. Notificações e Insights (Item animado e Ícone com pulso) */}
-            <motion.div 
-                className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg border-l-4 border-red-500"
-                variants={itemVariants}
-                whileHover={{ x: 5 }} // Deslize sutil para a direita no hover
-            >
-              <div className="flex items-center space-x-3">
-                <motion.div
-                    animate={{ scale: [1, 1.1, 1] }} // Animação de pulso
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                    className="flex-shrink-0"
-                >
-                    <AlertTriangle className="w-6 h-6 text-red-500" />
-                </motion.div>
-                
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Atenção: Alertas de Materiais</h3>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside mt-1">
-                    <li>O **Multímetro Fluke** (QR002) está **emprestado** e com prazo vencido.</li>
-                    <li>Apenas 2 unidades disponíveis do **Osciloscópio Digital** (Baixa Disponibilidade).</li>
-                    <li>A **Bancada de Testes** (QR003) está em **Manutenção** e precisa de acompanhamento.</li>
-                  </ul>
-                </div>
-              </div>
-            </motion.div>
+            
 
           </div>
       </motion.main>

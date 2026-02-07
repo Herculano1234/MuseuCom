@@ -1,25 +1,42 @@
 import React, { useState } from 'react';
+import Sidebar from './components/UserSidebar';
+import Navbar from './components/UserNavbar';
 import { Outlet } from 'react-router-dom';
-import UserSidebar from './components/UserSidebar';
-import UserNavbar from './components/UserNavbar';
-
+import { ToastProvider } from './../../components/ToastContext';
 export default function DashboardLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compact, setCompact] = useState(false);
-
-  const toggleSidebar = () => setSidebarOpen(open => !open);
-  const closeSidebar = () => setSidebarOpen(false);
-  const toggleCompact = () => setCompact(c => !c);
-
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <UserSidebar isOpen={sidebarOpen} onClose={closeSidebar} onToggleCompact={toggleCompact} />
-      <div className={`lg:pl-64 transition-all`}>
-        <UserNavbar onToggleSidebar={toggleSidebar} />
-        <main className="pt-6">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+   // ✅ MUDANÇA 1: Usar 'h-screen' em vez de 'min-h-screen' e adicionar 'overflow-hidden' 
+       // para garantir que o contêiner principal não role.
+       <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900"> 
+         
+         {/* O Sidebar já está configurado como 'fixed' e 'h-full' */}
+         <Sidebar
+           isOpen={sidebarOpen}
+           onClose={() => setSidebarOpen(false)}
+           onToggleCompact={() => {
+             // Lógica para alternar modo compacto:
+             // setIsCompact((s) => !s); // Descomente se usar o estado `isCompact`
+             console.log("Compact mode toggled");
+           }}
+         />
+         
+         {/* Container do Conteúdo Principal (Navbar + Main) */}
+         <div className="flex-1 flex flex-col overflow-hidden"> 
+           
+           {/* Navbar (sempre visível no topo, não rola) */}
+           <Navbar onToggleSidebar={() => setSidebarOpen((s) => !s)} />
+           
+           {/* Conteúdo Principal */}
+           {/* ✅ MUDANÇA 2: Adicionar 'overflow-y-auto' para permitir que apenas esta área role 
+                se o conteúdo for maior que o espaço disponível. */}
+           <main className="flex-1 p-6 md:pl-7 overflow-y-auto">
+             <ToastProvider>
+               <Outlet />
+             </ToastProvider>
+           </main>
+         </div>
+       </div>
   );
 }
