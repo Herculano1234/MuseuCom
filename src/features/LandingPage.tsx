@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // --- DADOS ORIGINAIS PRESERVADOS ---
 const carouselImages = [
-  "https://drive.google.com/file/d/1jq77NhzmTqOP4ENGOqWXQZr36gaI4mQL/view?usp=sharing",
-  "https://drive.google.com/file/d/1rT5I7jOLbqP_SmkFuF3uEn0NN6f-K8lY/view?usp=sharing",
-  "https://drive.google.com/file/d/1DBEX1P2Cqtrc5CEN9nR9orGfBvMVFJI1/view?usp=sharing"
+  "https://i.pinimg.com/736x/12/03/da/1203da8f0dd816b7ca3ef97e2a0e2fa2.jpg",
+  "https://i.pinimg.com/736x/e2/0d/51/e20d51590a9abb043a4f65213864d596.jpg",
+  "https://i.pinimg.com/1200x/e7/b8/c6/e7b8c659df2a38fc4f10b74f2312f138.jpg"
 ];
 
 const servicesData = [
