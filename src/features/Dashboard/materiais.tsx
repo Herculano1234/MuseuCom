@@ -401,6 +401,7 @@ export default function MateriaisProfPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
+                        <div className="max-h-[60vh] overflow-y-auto pr-4">
                         <div>
                           <label className="text-sm text-gray-500">Nome</label>
                           <input className="w-full p-2 mt-1 rounded border" value={formState?.nome_material ?? selectedMaterial.nome_material ?? ''} onChange={(e)=> setFormState(s => ({ ...(s||{}), nome_material: e.target.value }))} />
@@ -477,32 +478,37 @@ export default function MateriaisProfPage() {
                           )}
                         </div>
 
-                        <div className="flex justify-end space-x-2">
-                          <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => { setIsEditing(false); setFormState(null); }}>Cancelar</button>
-                          <button className="px-4 py-2 bg-sky-600 text-white rounded" onClick={async ()=>{
-                            if (!formState) return;
-                            try {
-                              const payload:any = {};
-                              if (formState.nome_material !== undefined) payload.nome = formState.nome_material;
-                              if (formState.numero_serie !== undefined) payload.numero_serie = formState.numero_serie;
-                              if (formState.modelo !== undefined) payload.modelo = formState.modelo;
-                              if (formState.fabricante !== undefined) payload.fabricante = formState.fabricante;
-                              if (formState.data_fabrico !== undefined) payload.data_fabrico = formState.data_fabrico;
-                              if (formState.infor_ad !== undefined) payload.infor_ad = formState.infor_ad;
-                              if (formState.perfil_fabricante !== undefined) payload.perfil_fabricante = formState.perfil_fabricante;
-                              if (formState.foto !== undefined) payload.foto = formState.foto;
-                              if (formState.pdf !== undefined) payload.pdf = formState.pdf;
-                              await api.put(`/materiais/${encodeURIComponent(String(selectedMaterial.id))}`, payload);
-                              // Atualiza localmente
-                              await reloadMateriais();
-                              setSelectedMaterial(null);
-                              setFormState(null);
-                              setIsEditing(false);
-                            } catch (err:any) {
-                              console.error('Erro ao salvar material', err);
-                              try { toast.showToast('Erro ao salvar material: ' + (err?.response?.data?.error || err?.message || ''), 'error'); } catch(e){}
-                            }
-                          }}>Salvar</button>
+                        </div>
+                        <div className="flex justify-between items-center sticky bottom-0 bg-white dark:bg-gray-800 p-4 rounded-b-xl mt-4">
+                          <div className="text-xs text-gray-500">Campos salvos são aplicados à tabela `materiais`.</div>
+                          <div className="flex items-center gap-2">
+                            <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => { setIsEditing(false); setFormState(null); }}>Cancelar</button>
+                            <button className="px-4 py-2 bg-sky-600 text-white rounded" onClick={async ()=>{
+                              if (!formState) return;
+                              try {
+                                const payload:any = {};
+                                if (formState.nome_material !== undefined) payload.nome = formState.nome_material;
+                                if (formState.numero_serie !== undefined) payload.numero_serie = formState.numero_serie;
+                                if (formState.modelo !== undefined) payload.modelo = formState.modelo;
+                                if (formState.fabricante !== undefined) payload.fabricante = formState.fabricante;
+                                if (formState.data_fabrico !== undefined) payload.data_fabrico = formState.data_fabrico;
+                                if (formState.infor_ad !== undefined) payload.infor_ad = formState.infor_ad;
+                                if (formState.perfil_fabricante !== undefined) payload.perfil_fabricante = formState.perfil_fabricante;
+                                if (formState.foto !== undefined) payload.foto = formState.foto;
+                                if (formState.pdf !== undefined) payload.pdf = formState.pdf;
+                                await api.put(`/materiais/${encodeURIComponent(String(selectedMaterial.id))}`, payload);
+                                // Atualiza localmente
+                                await reloadMateriais();
+                                setSelectedMaterial(null);
+                                setFormState(null);
+                                setIsEditing(false);
+                                try { toast.showToast('Material atualizado com sucesso', 'success'); } catch(e){}
+                              } catch (err:any) {
+                                console.error('Erro ao salvar material', err);
+                                try { toast.showToast('Erro ao salvar material: ' + (err?.response?.data?.error || err?.message || ''), 'error'); } catch(e){}
+                              }
+                            }}>Salvar</button>
+                          </div>
                         </div>
                       </div>
                     )}
