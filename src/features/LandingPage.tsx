@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import { motion, AnimatePresence } from "framer-motion";
+import api from '../api';
 
 // --- DADOS ORIGINAIS PRESERVADOS ---
 const carouselImages = [
@@ -18,21 +19,14 @@ const servicesData = [
   { icon: "fas fa-calendar-alt", title: "Eventos Culturais", desc: "Espaço para conferências, lançamentos de livros e encontros temáticos." },
 ];
 
-const artifactsData = [
-  { id: 1, name: "Telefone de Disco", category: "telefones", desc: "Baquelite, Anos 70. Usado em residências.", inv: "INV-001", img: "https://images.unsplash.com/photo-1520962922320-2038eebab146?auto=format&fit=crop&q=80&w=400" },
-  { id: 2, name: "Rádio Valvulado", category: "radios", desc: "Madeira, Anos 50. Recepção AM/SW.", inv: "INV-004", img: "https://images.unsplash.com/photo-1524312788339-e4a69f68cb67?auto=format&fit=crop&q=80&w=400" },
-  { id: 3, name: "Telégrafo Morse", category: "telegrafia", desc: "Metal/Madeira, Séc. XIX. Transmissão de dados.", inv: "INV-012", img: "https://images.unsplash.com/photo-1542385352-7e9b4661073e?auto=format&fit=crop&q=80&w=400" },
-  { id: 4, name: "Telex T100", category: "telegrafia", desc: "Eletromecânico. Envio de mensagens escritas.", inv: "INV-020", img: "https://images.unsplash.com/photo-1563205764-64b598b0f772?auto=format&fit=crop&q=80&w=400" },
-  { id: 5, name: "Celular 'Tijolão'", category: "equipamentos digitais", desc: "Plástico, Anos 90. Primeira geração móvel.", inv: "INV-033", img: "https://images.unsplash.com/photo-1576662712683-176317bbb69c?auto=format&fit=crop&q=80&w=400" },
-  { id: 6, name: "Lista Telefônica 1980", category: "documentos", desc: "Papel. Registo de assinantes de Luanda.", inv: "INV-045", img: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&q=80&w=400" },
-];
-
-const categories = ["todos", "telefones", "radios", "telegrafia", "documentos", "equipamentos digitais"];
+// artifacts will be loaded from backend; categories derived from `fabricante`
 
 export default function LandingPage() {
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("todos");
+  const [materials, setMaterials] = useState<Array<any>>([]);
+  const [categories, setCategories] = useState<string[]>(['todos']);
   const carouselInterval = useRef<number | null>(null);
 
   useEffect(() => {
@@ -40,6 +34,36 @@ export default function LandingPage() {
       setCarouselIdx((idx) => (idx + 1) % carouselImages.length);
     }, 6000);
     return () => { if (carouselInterval.current) window.clearInterval(carouselInterval.current); };
+  }, []);
+
+  // Load materials from backend and derive categories (fabricante)
+  useEffect(() => {
+    let mounted = true;
+    async function loadMaterials() {
+      try {
+        const resp = await api.get('/materiais');
+        if (!mounted) return;
+        const arr = Array.isArray(resp.data) ? resp.data : [];
+        // Normalize
+        const norm = arr.map((r:any) => ({
+          id: r.id,
+          nome: r.nome || r.nome_material || '—',
+          numero_serie: r.numero_serie ?? null,
+          modelo: r.modelo ?? null,
+          fabricante: r.fabricante ?? null,
+          infor_ad: r.infor_ad ?? r.descricao ?? null,
+          foto: r.foto ?? null,
+        }));
+        setMaterials(norm);
+        const fabricSet = new Set<string>();
+        norm.forEach(m => { if (m.fabricante) fabricSet.add(m.fabricante); });
+        setCategories(['todos', ...Array.from(fabricSet)]);
+      } catch (err) {
+        console.warn('Não foi possível carregar materiais no landing page', err);
+      }
+    }
+    loadMaterials();
+    return () => { mounted = false; };
   }, []);
 
   const handleScrollTo = (id: string) => {
@@ -50,9 +74,9 @@ export default function LandingPage() {
     }
   };
 
-  const filteredArtifacts = activeCategory === "todos" 
-    ? artifactsData 
-    : artifactsData.filter(item => item.category === activeCategory);
+  const filteredArtifacts = activeCategory === 'todos'
+    ? materials.slice(0,6)
+    : materials.filter(m => m.fabricante === activeCategory).slice(0,6);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 selection:bg-indigo-100 overflow-x-hidden">
@@ -224,31 +248,32 @@ export default function LandingPage() {
                 {cat}
               </button>
             ))}
+            <Link to="/materiais/todos" className="ml-2 px-5 py-2 rounded-full text-sm font-bold bg-sky-600 text-white hover:bg-sky-700">Ver Todos</Link>
           </div>
         </div>
         <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
           <AnimatePresence mode="popLayout">
-            {filteredArtifacts.map((item) => (
+            {filteredArtifacts.map((item:any) => (
               <motion.div 
                 layout
                 key={item.id}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
+                exit={{ opacity: 0, scale: 0.96 }}
                 className="group bg-slate-50 rounded-3xl overflow-hidden border border-slate-100 transition-all hover:-translate-y-2"
               >
-                <div className="h-56 overflow-hidden">
-                  <img src={item.img} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                <div className="h-56 overflow-hidden bg-gray-100">
+                  <img src={item.foto || 'https://via.placeholder.com/600x400?text=Sem+imagem'} alt={item.nome} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                 </div>
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold text-slate-900">{item.name}</h3>
-                    <span className="text-xs font-bold px-2 py-1 bg-white rounded border border-slate-200">{item.inv}</span>
+                    <h3 className="text-xl font-bold text-slate-900">{item.nome}</h3>
+                    <span className="text-xs font-bold px-2 py-1 bg-white rounded border border-slate-200">{item.numero_serie ?? ''}</span>
                   </div>
-                  <p className="text-slate-500 text-sm mb-4 leading-relaxed">{item.desc}</p>
+                  <p className="text-slate-500 text-sm mb-4 leading-relaxed">{(item.infor_ad || '').slice(0, 140) || item.modelo || '—'}</p>
                   <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-                    <span className="text-xs uppercase font-black text-indigo-600 tracking-tighter">{item.category}</span>
-                    <i className="fas fa-qrcode text-slate-300"></i>
+                    <span className="text-xs uppercase font-black text-indigo-600 tracking-tighter">{item.fabricante ?? '—'}</span>
+                    <Link to={`/ver/${encodeURIComponent(item.numero_serie ?? item.id)}`} className="text-sky-600 hover:underline">Ver</Link>
                   </div>
                 </div>
               </motion.div>

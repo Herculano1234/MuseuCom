@@ -26,7 +26,7 @@ export default function CadastroMaterial() {
     pdf: null as File | null
   });
 
-  const qrUrl = `https://api.museucom.ao/materiais/${formData.numero_serie || 'pendente'}`;
+  const qrUrl = `https://api.museucom.ao/ver/${formData.numero_serie}`;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

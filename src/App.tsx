@@ -11,9 +11,12 @@ import DashboardLayout from './features/Dashboard/DashboardLayout';
 import MateriaisProfPage from './features/Dashboard/materiais';
 import UserHome from './features/Dashboard/UserHome';
 import Estatistica from './features/Dashboard/Estatistica';
+import ViewMaterial from './features/ViewMaterial';
+import AllMaterials from './features/AllMaterials';
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
 import api from './api';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './components/ToastContext';
 
 function RequireAuth({ perfil }: { children?: React.ReactNode; perfil: string }) {
   const { user, loading } = useAuth();
@@ -50,7 +53,8 @@ function App() {
   }, []);
   return (
     <AuthProvider>
-    <Routes>
+      <ToastProvider>
+        <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/" element={<LandingPage />} />
@@ -64,11 +68,15 @@ function App() {
         <Route path="estatistica" element={<Estatistica />} />
         <Route path="cadastro-material" element={<CadastroMaterial />} />
       </Route>
+      {/* Route to view material by numero_serie */}
+      <Route path="/ver/:numero_serie" element={<ViewMaterial />} />
+      <Route path="/materiais/todos" element={<AllMaterials />} />
       {/* Rotas do Profissional */}
       {/* Rotas públicas/guest */}
       {/* Catch-all: mostra NotFound em vez de tela em branco */}
       <Route path="*" element={<NotFound />} />
-    </Routes>
+        </Routes>
+      </ToastProvider>
     </AuthProvider>
   );
 }
