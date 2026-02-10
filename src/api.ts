@@ -1,20 +1,25 @@
-import axios from "axios";
+/// <reference types="vite/client" />
+import axios, { AxiosRequestHeaders } from "axios";
+
+const baseURL = (import.meta as any).env?.VITE_API_URL ?? '';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ,
+  baseURL,
   timeout: 20000,
 });
 
 // Instância sem interceptors para chamadas de auth (refresh) para evitar loops
-const authClient = axios.create({ baseURL: import.meta.env.VITE_API_URL , timeout: 20000 });
+const authClient = axios.create({ baseURL, timeout: 20000 });
 
 // Adiciona automaticamente o token JWT (se existir) em todas as requisições
 api.interceptors.request.use((config) => {
   try {
     const token = localStorage.getItem('museucom-token');
     if (token) {
-      if (!config.headers) config.headers = {};
-      config.headers.Authorization = `Bearer ${token}`;
+      // Normalize headers to AxiosRequestHeaders
+      const headers = (config.headers || {}) as AxiosRequestHeaders;
+      headers.Authorization = `Bearer ${token}` as unknown as string;
+      config.headers = headers;
     }
   } catch (err) {
     // ignore
@@ -48,8 +53,9 @@ api.interceptors.response.use(
         // já em processo de refresh: aguarda
         return new Promise((resolve, reject) => {
           subscribeTokenRefresh((token: string) => {
-            if (!originalRequest.headers) originalRequest.headers = {};
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+            const headers = (originalRequest.headers || {}) as AxiosRequestHeaders;
+            headers.Authorization = `Bearer ${token}` as unknown as string;
+            originalRequest.headers = headers as any;
             resolve(api(originalRequest));
           });
         });
@@ -64,8 +70,9 @@ api.interceptors.response.use(
         if (newRefresh) localStorage.setItem('museucom-refresh', newRefresh);
         // notifica subscribers e refaz a requisição original
         onRefreshed(newToken);
-        if (!originalRequest.headers) originalRequest.headers = {};
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        const headers = (originalRequest.headers || {}) as AxiosRequestHeaders;
+        headers.Authorization = `Bearer ${newToken}` as unknown as string;
+        originalRequest.headers = headers as any;
         return api(originalRequest);
       } catch (refreshErr) {
         try { localStorage.removeItem('museucom-token'); localStorage.removeItem('museucom-user'); localStorage.removeItem('museucom-auth'); localStorage.removeItem('museucom-perfil'); localStorage.removeItem('museucom-refresh'); } catch(e){}

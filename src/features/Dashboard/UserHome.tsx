@@ -150,12 +150,16 @@ export default function UserHome() {
         let mats: any[] = [];
         try {
           const matsRes = await api.get('/materiais');
-          mats = Array.isArray(matsRes.data) ? matsRes.data : [];
+          // Support legacy array or new { items, meta } response
+          mats = Array.isArray(matsRes.data) ? matsRes.data : (Array.isArray(matsRes.data?.items) ? matsRes.data.items : []);
+          // If backend provides meta.total prefer it for exact count
+          const possibleTotal = matsRes.data?.meta?.total;
+          const matCount = typeof possibleTotal === 'number' ? possibleTotal : mats.length;
+          setMaterialCount(Number(matCount || 0));
         } catch (e) {
           mats = [];
+          setMaterialCount(0);
         }
-        const matCount = mats.length;
-        setMaterialCount(matCount);
 
         // Determina o material mais visto por heurística: procura chaves comuns
         if (mats.length > 0) {

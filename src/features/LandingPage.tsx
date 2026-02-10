@@ -4,6 +4,16 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import { motion, AnimatePresence } from "framer-motion";
 import api from '../api';
 
+interface Material {
+  id: number;
+  nome: string;
+  numero_serie?: string | null;
+  modelo?: string | null;
+  fabricante?: string | null;
+  infor_ad?: string | null;
+  foto?: string | null;
+}
+
 // --- DADOS ORIGINAIS PRESERVADOS ---
 const carouselImages = [
   "https://i.pinimg.com/736x/12/03/da/1203da8f0dd816b7ca3ef97e2a0e2fa2.jpg",
@@ -25,7 +35,7 @@ export default function LandingPage() {
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("todos");
-  const [materials, setMaterials] = useState<Array<any>>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [categories, setCategories] = useState<string[]>(['todos']);
   const carouselInterval = useRef<number | null>(null);
 
@@ -41,12 +51,13 @@ export default function LandingPage() {
     let mounted = true;
     async function loadMaterials() {
       try {
-        const resp = await api.get('/materiais');
+        const resp = await api.get('/materiais', { params: { limit: 12 } });
         if (!mounted) return;
-        const arr = Array.isArray(resp.data) ? resp.data : [];
+        // API may return { items, meta } now
+        const arr = Array.isArray(resp.data) ? resp.data : (Array.isArray(resp.data?.items) ? resp.data.items : []);
         // Normalize
-        const norm = arr.map((r:any) => ({
-          id: r.id,
+        const norm: Material[] = arr.map((r: any) => ({
+          id: Number(r.id),
           nome: r.nome || r.nome_material || '—',
           numero_serie: r.numero_serie ?? null,
           modelo: r.modelo ?? null,
@@ -56,7 +67,7 @@ export default function LandingPage() {
         }));
         setMaterials(norm);
         const fabricSet = new Set<string>();
-        norm.forEach(m => { if (m.fabricante) fabricSet.add(m.fabricante); });
+        norm.forEach((m: Material) => { if (m.fabricante) fabricSet.add(m.fabricante); });
         setCategories(['todos', ...Array.from(fabricSet)]);
       } catch (err) {
         console.warn('Não foi possível carregar materiais no landing page', err);
@@ -75,8 +86,8 @@ export default function LandingPage() {
   };
 
   const filteredArtifacts = activeCategory === 'todos'
-    ? materials.slice(0,6)
-    : materials.filter(m => m.fabricante === activeCategory).slice(0,6);
+    ? materials.slice(0,3)
+    : materials.filter((m: Material) => m.fabricante === activeCategory).slice(0,3);
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 selection:bg-indigo-100 overflow-x-hidden">
@@ -253,7 +264,7 @@ export default function LandingPage() {
         </div>
         <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
           <AnimatePresence mode="popLayout">
-            {filteredArtifacts.map((item:any) => (
+            {filteredArtifacts.map((item: Material) => (
               <motion.div 
                 layout
                 key={item.id}
@@ -273,7 +284,7 @@ export default function LandingPage() {
                   <p className="text-slate-500 text-sm mb-4 leading-relaxed">{(item.infor_ad || '').slice(0, 140) || item.modelo || '—'}</p>
                   <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
                     <span className="text-xs uppercase font-black text-indigo-600 tracking-tighter">{item.fabricante ?? '—'}</span>
-                    <Link to={`/ver/${encodeURIComponent(item.numero_serie ?? item.id)}`} className="text-sky-600 hover:underline">Ver</Link>
+                    <Link to={`/ver/${encodeURIComponent(String(item.numero_serie ?? item.id))}`} className="text-sky-600 hover:underline">Ver</Link>
                   </div>
                 </div>
               </motion.div>

@@ -114,8 +114,12 @@ export default function MateriaisProfPage() {
     setError(null);
     try {
       const res = await api.get('/materiais');
-      if (Array.isArray(res.data)) {
-        const normalized = res.data.map((r:any) => ({
+      // Support both legacy array response and new { items, meta } shape
+      const dataArray = Array.isArray(res.data)
+        ? res.data
+        : (Array.isArray(res.data?.items) ? res.data.items : []);
+      if (Array.isArray(dataArray)) {
+        const normalized = dataArray.map((r:any) => ({
           id: Number(r.id),
           // DB fields
           nome_material: r.nome || r.nome_material || '—',
@@ -488,7 +492,7 @@ export default function MateriaisProfPage() {
                               if (formState.perfil_fabricante !== undefined) payload.perfil_fabricante = formState.perfil_fabricante;
                               if (formState.foto !== undefined) payload.foto = formState.foto;
                               if (formState.pdf !== undefined) payload.pdf = formState.pdf;
-                              await api.put(`/materiais/${encodeURIComponent(selectedMaterial.id)}`, payload);
+                              await api.put(`/materiais/${encodeURIComponent(String(selectedMaterial.id))}`, payload);
                               // Atualiza localmente
                               await reloadMateriais();
                               setSelectedMaterial(null);
