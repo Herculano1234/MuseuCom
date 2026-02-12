@@ -5,7 +5,7 @@ const baseURL = (import.meta as any).env?.VITE_API_URL ?? '';
 
 const api = axios.create({
   baseURL,
-  timeout: 20000,
+  timeout: 60000,
 });
 
 // Instância sem interceptors para chamadas de auth (refresh) para evitar loops

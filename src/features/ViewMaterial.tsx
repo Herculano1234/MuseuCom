@@ -138,7 +138,7 @@ export default function ViewMaterial() {
           {/* Coluna Informações (Direita) */}
           <div className="lg:col-span-7 space-y-6">
             
-            <CardSection title="Descrição do Equipamento" delay={0.1}>
+            <CardSection title="Informações Adicionais" delay={0.1}>
               <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                 {material.infor_ad || "Nenhuma descrição adicional informada para este item."}
               </p>
@@ -158,47 +158,7 @@ export default function ViewMaterial() {
               </div>
             </CardSection>
 
-            {/* Seção PDF - CTA (Call to Action) */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-gradient-to-br from-sky-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-sky-600/20"
-            >
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4 text-center sm:text-left">
-                  <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
-                    <FileText size={32} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg leading-tight">Documentação Técnica</h3>
-                    <p className="text-sky-100 text-sm">Acesse o PDF completo do produto</p>
-                  </div>
-                </div>
-                
-                {material.pdf ? (
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <a 
-                      href={material.pdf} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="flex-1 sm:flex-none text-center bg-white text-sky-600 px-6 py-3 rounded-xl font-bold text-sm hover:bg-sky-50 transition-colors shadow-lg"
-                    >
-                      Visualizar
-                    </a>
-                    <a 
-                      href={material.pdf} 
-                      download
-                      className="bg-sky-500/30 hover:bg-sky-500/50 p-3 rounded-xl transition-colors"
-                    >
-                      <Download size={20} />
-                    </a>
-                  </div>
-                ) : (
-                  <span className="text-sky-200 text-sm font-medium">PDF indisponível</span>
-                )}
-              </div>
-            </motion.div>
+           
           </div>
         </div>
       </main>
