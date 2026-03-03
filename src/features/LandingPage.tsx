@@ -178,7 +178,7 @@ export default function LandingPage() {
               Bem-vindo ao Museu das Comunicações
             </span>
             <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-tight">
-              Conectando Passado, <span className="text-indigo-600">Presente</span> e Futuro.
+              Conectando o Passado, <span className="text-indigo-600"> o Presente</span> e o Futuro.
             </h1>
             <p className="text-xl text-slate-600 border-l-4 border-indigo-500 pl-4 italic leading-relaxed">
               "O Museu das Comunicações de Angola é um espaço que preserva a memória e inspira novas gerações."
