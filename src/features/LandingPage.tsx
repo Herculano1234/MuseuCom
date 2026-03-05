@@ -1,753 +1,355 @@
-import express from "express";
-import cors from "cors";
-import os from 'os';
-import dotenv from "dotenv";
-import mysql from "mysql2/promise";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-import multer from 'multer';
-dotenv.config();
-const app = express();
-// Habilita CORS explicitamente. Defina ALLOWED_ORIGIN na produção para restringir.
-app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
-// Allow larger JSON bodies for non-file endpoints (safe moderate limit)
-app.use(express.json({ limit: '10mb' }));
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import "@fortawesome/fontawesome-free/css/all.min.css";
+import { motion, AnimatePresence } from "framer-motion";
+import api from '../api';
 
-// --------------------
-// MySQL (Aiven) Pool
-// --------------------
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  multipleStatements: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: { rejectUnauthorized: false },
-});
-
-// Helper de tratamento de erros padronizado
-function handleError(res, err) {
-  console.error('Unhandled error:', err && (err.message || err));
-  try {
-    return res.status(500).json({ error: err && (err.message || String(err)) || 'Erro interno.' });
-  } catch (e) {
-    console.error('Falha ao enviar erro:', e);
-    // em último caso, apenas encerra
-    try { res.status(500).end(); } catch (_) {}
-  }
+interface Material {
+  id: number;
+  nome: string;
+  numero_serie?: string | null;
+  modelo?: string | null;
+  fabricante?: string | null;
+  infor_ad?: string | null;
+  foto?: string | null;
 }
 
-// Corrigir __dirname (pois em ES Modules ele não existe direto)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// --- DADOS ORIGINAIS PRESERVADOS ---
+const carouselImages = [
+  "https://i.pinimg.com/736x/12/03/da/1203da8f0dd816b7ca3ef97e2a0e2fa2.jpg",
+  "https://i.pinimg.com/736x/e2/0d/51/e20d51590a9abb043a4f65213864d596.jpg",
+  "https://i.pinimg.com/1200x/e7/b8/c6/e7b8c659df2a38fc4f10b74f2312f138.jpg"
+];
 
-// Multer setup for handling multipart/form-data (foto, pdf)
-// Use memory storage so files are available as buffers and can be stored in DB
-const storage = multer.memoryStorage();
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+const servicesData = [
+  { icon: "fas fa-users", title: "Visitas Guiadas", desc: "Experiência acompanhada por especialistas que explicam a história das comunicações." },
+  { icon: "fas fa-landmark", title: "Exposições", desc: "Mostrando desde equipamentos clássicos até tecnologias modernas, permanentes e temporárias." },
+  { icon: "fas fa-graduation-cap", title: "Atividades Educativas", desc: "Oficinas, palestras e programas escolares para inspirar novas gerações." },
+  { icon: "fas fa-book-open", title: "Pesquisa e Documentação", desc: "Apoio a estudantes e investigadores interessados em telecomunicações e história." },
+  { icon: "fas fa-calendar-alt", title: "Eventos Culturais", desc: "Espaço para conferências, lançamentos de livros e encontros temáticos." },
+];
 
-async function initDatabase() {
-  try {
-    // Sobe uma pasta (de /src para /)
-    const sqlPath = path.join(__dirname, "../init_db.sql");
-    const sql = fs.readFileSync(sqlPath, "utf8");
+// artifacts will be loaded from backend; categories derived from `fabricante`
 
-    console.log("🟢 Inicializando o banco de dados...");
-    await pool.query(sql);
-    
-    console.log("✅ Banco de dados inicializado com sucesso!");
-  } catch (err) {
-    console.error("❌ Erro ao inicializar o banco de dados:", err.message);
-  }
+export default function LandingPage() {
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("todos");
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [categories, setCategories] = useState<string[]>(['todos']);
+  const carouselInterval = useRef<number | null>(null);
+
+  useEffect(() => {
+    carouselInterval.current = window.setInterval(() => {
+      setCarouselIdx((idx) => (idx + 1) % carouselImages.length);
+    }, 6000);
+    return () => { if (carouselInterval.current) window.clearInterval(carouselInterval.current); };
+  }, []);
+
+  // Load materials from backend and derive categories (fabricante)
+  useEffect(() => {
+    let mounted = true;
+    async function loadMaterials() {
+      try {
+        const resp = await api.get('/materiais', { params: { limit: 12 } });
+        if (!mounted) return;
+        // API may return { items, meta } now
+        const arr = Array.isArray(resp.data) ? resp.data : (Array.isArray(resp.data?.items) ? resp.data.items : []);
+        // Normalize
+        const norm: Material[] = arr.map((r: any) => ({
+          id: Number(r.id),
+          nome: r.nome || r.nome_material || '—',
+          numero_serie: r.numero_serie ?? null,
+          modelo: r.modelo ?? null,
+          fabricante: r.fabricante ?? null,
+          infor_ad: r.infor_ad ?? r.descricao ?? null,
+          foto: r.foto ?? null,
+        }));
+        setMaterials(norm);
+        const fabricSet = new Set<string>();
+        norm.forEach((m: Material) => { if (m.fabricante) fabricSet.add(m.fabricante); });
+        setCategories(['todos', ...Array.from(fabricSet)]);
+      } catch (err) {
+        console.warn('Não foi possível carregar materiais no landing page', err);
+      }
+    }
+    loadMaterials();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleScrollTo = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      window.scrollTo({ top: element.offsetTop - 80, behavior: "smooth" });
+      setMobileMenuOpen(false);
+    }
+  };
+
+  const filteredArtifacts = activeCategory === 'todos'
+    ? materials.slice(0,3)
+    : materials.filter((m: Material) => m.fabricante === activeCategory).slice(0,3);
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-slate-800 selection:bg-indigo-100 overflow-x-hidden">
+      
+      {/* NAVBAR */}
+      <header className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-sm">
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 text-2xl font-black text-indigo-700 cursor-pointer" 
+            onClick={() => handleScrollTo('inicio')}
+          >
+            <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg">
+              <i className="fas fa-landmark"></i>
+            </div>
+            <span>MuseuCom</span>
+          </motion.div>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex gap-8 items-center">
+            {["Início", "Serviços", "Artefactos", "Contato"].map((item, idx) => (
+              <motion.button 
+                key={item} 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                onClick={() => handleScrollTo(item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))} 
+                className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors uppercase tracking-widest"
+              >
+                {item}
+              </motion.button>
+            ))}
+            <div className="h-5 w-px bg-slate-200 mx-2"></div>
+            <Link to="/login" className="px-6 py-2.5 bg-indigo-600 text-white rounded-full font-bold text-sm shadow-md hover:bg-indigo-700 transition-all">
+              Área Restrita
+            </Link>
+          </nav>
+
+          {/* Mobile Menu Toggle */}
+          <button className="md:hidden text-2xl text-slate-800 p-2" onClick={() => setMobileMenuOpen(true)}>
+            <i className="fas fa-bars"></i>
+          </button>
+        </div>
+      </header>
+
+      {/* MOBILE MENU OVERLAY */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-lg md:hidden flex flex-col items-center justify-center"
+          >
+            <button className="absolute top-6 right-6 text-3xl text-white" onClick={() => setMobileMenuOpen(false)}>
+              <i className="fas fa-times"></i>
+            </button>
+            <nav className="flex flex-col gap-8 text-center">
+              {["Início", "Serviços", "Artefactos", "Contato"].map((item) => (
+                <button 
+                  key={item} 
+                  onClick={() => handleScrollTo(item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))} 
+                  className="text-2xl font-black text-white hover:text-indigo-400 transition-colors"
+                >
+                  {item}
+                </button>
+              ))}
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="mt-4 px-10 py-4 bg-indigo-600 text-white rounded-full font-bold text-lg">
+                Área Restrita
+              </Link>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* HERO SECTION */}
+      <section id="inicio" className="relative pt-32 pb-20 overflow-hidden">
+        <div className="container mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
+          <motion.div 
+            className="flex-1 space-y-6" 
+            initial={{ opacity: 0, x: -50 }} 
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <span className="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold uppercase tracking-wider">
+              Bem-vindo ao Museu das Comunicações
+            </span>
+            <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-tight">
+              Conectando Passado, <span className="text-indigo-600">Presente</span> e Futuro.
+            </h1>
+            <p className="text-xl text-slate-600 border-l-4 border-indigo-500 pl-4 italic leading-relaxed">
+              "O Museu das Comunicações de Angola é um espaço que preserva a memória e inspira novas gerações."
+            </p>
+            <div className="flex flex-wrap gap-4 pt-4">
+              <button onClick={() => handleScrollTo('contato')} className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                Visite-nos
+              </button>
+              <button onClick={() => handleScrollTo('artefactos')} className="px-8 py-4 border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:border-indigo-600 transition-all">
+                Ver Artefactos
+              </button>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="flex-1 w-full rounded-[2.5rem] overflow-hidden shadow-2xl border-8 border-slate-50 relative group"
+          >
+            <img src={carouselImages[carouselIdx]} className="w-full h-[500px] object-cover transition-all duration-1000 group-hover:scale-105" alt="Exposição" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
+          </motion.div>
+        </div>
+      </section>
+
+      {/* SERVIÇOS */}
+      <section id="servicos" className="py-24 bg-slate-50">
+        <div className="container mx-auto px-6 text-center mb-16">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl font-black text-slate-900 mb-4"
+          >
+            Nossos Serviços
+          </motion.h2>
+          <div className="w-20 h-1.5 bg-indigo-600 mx-auto rounded-full"></div>
+        </div>
+        <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {servicesData.map((service, idx) => (
+            <motion.div 
+              key={idx}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1 }}
+              className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl transition-all group"
+            >
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <i className={service.icon}></i>
+              </div>
+              <h3 className="text-xl font-bold mb-3">{service.title}</h3>
+              <p className="text-slate-500 leading-relaxed">{service.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ACERVO DIGITAL */}
+      <section id="artefactos" className="py-24 bg-white">
+        <div className="container mx-auto px-6 mb-12 flex flex-col items-center">
+          <motion.h2 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            className="text-4xl font-black text-slate-900 mb-8"
+          >
+            Acervo Digital
+          </motion.h2>
+          <div className="flex flex-wrap justify-center gap-3">
+            {categories.map((cat) => (
+              <button 
+                key={cat} 
+                onClick={() => setActiveCategory(cat)}
+                className={`px-5 py-2 rounded-full text-sm font-bold transition-all capitalize ${activeCategory === cat ? "bg-indigo-600 text-white shadow-lg" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              >
+                {cat}
+              </button>
+            ))}
+            <Link to="/materiais/todos" className="ml-2 px-5 py-2 rounded-full text-sm font-bold bg-sky-600 text-white hover:bg-sky-700">Ver Todos</Link>
+          </div>
+        </div>
+        <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          <AnimatePresence mode="popLayout">
+            {filteredArtifacts.map((item: Material) => (
+              <motion.div 
+                layout
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                className="group bg-slate-50 rounded-3xl overflow-hidden border border-slate-100 transition-all hover:-translate-y-2"
+              >
+                <div className="h-56 overflow-hidden bg-gray-100">
+                  <img src={item.foto || 'https://via.placeholder.com/600x400?text=Sem+imagem'} alt={item.nome} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                </div>
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xl font-bold text-slate-900">{item.nome}</h3>
+                    <span className="text-xs font-bold px-2 py-1 bg-white rounded border border-slate-200">{item.numero_serie ?? ''}</span>
+                  </div>
+                  <p className="text-slate-500 text-sm mb-4 leading-relaxed">{(item.infor_ad || '').slice(0, 140) || item.modelo || '—'}</p>
+                  <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                    <span className="text-xs uppercase font-black text-indigo-600 tracking-tighter">{item.fabricante ?? '—'}</span>
+                    <Link to={`/ver/${encodeURIComponent(String(item.numero_serie ?? item.id))}`} className="text-sky-600 hover:underline">Ver</Link>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </section>
+
+      {/* CONTATO */}
+      <section id="contato" className="py-24 bg-slate-900 text-white overflow-hidden relative">
+        <div className="container mx-auto px-6 flex flex-col lg:flex-row gap-16">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="flex-1 space-y-8"
+          >
+            <h2 className="text-4xl font-black">Entre em Contato</h2>
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <i className="fas fa-map-marker-alt text-indigo-400 text-2xl mt-1"></i>
+                <div>
+                  <h4 className="font-bold text-lg">Localização</h4>
+                  <p className="text-slate-400">Angola, Luanda, Rangel, Bairro CTT.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <i className="fas fa-clock text-indigo-400 text-2xl mt-1"></i>
+                <div>
+                  <h4 className="font-bold text-lg">Horário</h4>
+                  <p className="text-slate-400">Segunda a Sábado: 9h – 17h</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+          
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex-1 bg-white p-8 md:p-12 rounded-[2.5rem] text-slate-900 shadow-2xl"
+          >
+            <h3 className="text-2xl font-bold mb-6">Mensagem Direta</h3>
+            <form className="space-y-4">
+              <input type="text" placeholder="Nome Completo" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all" />
+              <input type="email" placeholder="E-mail" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all" />
+              <textarea placeholder="Sua dúvida ou sugestão..." rows={4} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 transition-all resize-none"></textarea>
+              <button className="w-full py-4 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-xl transition-all">
+                Enviar Mensagem
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-slate-950 text-slate-500 py-12 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4 text-white text-xl font-black">
+          <i className="fas fa-landmark text-indigo-500"></i> MuseuCom
+        </div>
+        <p className="text-sm">
+          &copy; {new Date().getFullYear()} Museu das Comunicações de Angola.
+        </p>
+      </footer>
+
+    </div>
+  );
 }
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
-const JWT_SECRET = process.env.JWT_SECRET || 'please_change_this_secret';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'please_change_this_refresh_secret';
-
-
-app.post('/materiais/automacao', upload.fields([{ name: 'pdf', maxCount: 1 }]), async (req, res) => {
-  try {
-    const { nome, modelo, fabricante, ano_fabrico, numero_serie, perfil_fabricante, informacoes_adicionais } = req.body;
-
-    // 1. Tratamento do Ano (Extração do primeiro ano encontrado)
-    let dataFormatada = null;
-    if (ano_fabrico) {
-      const match = ano_fabrico.toString().match(/\d{4}/);
-      if (match) {
-        dataFormatada = `${match[0]}-01-01`;
-      }
-    }
-
-    // 2. Lógica para Número de Série Único
-    let finalSerialNumber = numero_serie;
-
-    // Função interna para verificar existência
-    const checkIfExists = async (serial) => {
-      const [rows] = await pool.query('SELECT id FROM materiais WHERE numero_serie = ?', [serial]);
-      return rows.length > 0;
-    };
-
-    // Se não enviaram número de série ou se o enviado já existir, gera um novo
-    if (!finalSerialNumber || await checkIfExists(finalSerialNumber)) {
-      let isDuplicate = true;
-      while (isDuplicate) {
-        // Gera um serial aleatório (Ex: SN-12345678)
-        const randomID = Math.floor(10000000 + Math.random() * 90000000);
-        finalSerialNumber = `SN-${randomID}`;
-        
-        // Verifica se o novo serial gerado aleatoriamente também já existe
-        isDuplicate = await checkIfExists(finalSerialNumber);
-      }
-    }
-
-    // 3. Tratamento do PDF
-    let pdfData = null;
-    if (req.files?.pdf?.[0]) {
-      pdfData = `data:${req.files.pdf[0].mimetype};base64,${req.files.pdf[0].buffer.toString('base64')}`;
-    }
-
-    // 4. Inserção no Banco
-    const sql = `INSERT INTO materiais (nome, numero_serie, modelo, fabricante, data_fabrico, infor_ad, perfil_fabricante, foto, pdf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    
-    const [result] = await pool.query(sql, [
-      nome, 
-      finalSerialNumber, 
-      modelo, 
-      fabricante, 
-      dataFormatada, 
-      informacoes_adicionais, 
-      perfil_fabricante, 
-      null, 
-      pdfData
-    ]);
-
-    res.status(201).json({ 
-      message: 'Cadastrado via Automação!', 
-      id: result.insertId,
-      numero_serie_utilizado: finalSerialNumber 
-    });
-
-  } catch (err) {
-    console.error("Erro no Backend:", err);
-    res.status(500).json({ error: err.message + " - erro vindo do back" });
-  }  
-});
- 
-// Rota para criar usuários (tabela `usuarios`)
-app.post('/usuarios', async (req, res) => {
-  try {
-    const { nome, email, senha, telefone } = req.body || {};
-    if (!nome || !email || !senha) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
-    }
-
-    // Verifica se já existe usuário com o mesmo email
-    const [existing] = await pool.query('SELECT id FROM usuarios WHERE email = ?', [email]);
-    if (Array.isArray(existing) && existing.length > 0) {
-      return res.status(409).json({ error: 'Email já cadastrado.' });
-    }
-
-    const senha_hash = await bcrypt.hash(senha, 10);
-    await pool.query('INSERT INTO usuarios (nome, email, senha_hash, telefone) VALUES (?, ?, ?, ?)', [nome, email, senha_hash, telefone || null]);
-
-    return res.status(201).json({ message: 'Usuário criado com sucesso.' });
-  } catch (err) {
-    console.error('Erro ao criar usuário:', err);
-    return res.status(500).json({ error: 'Erro interno ao criar usuário.' });
-  }
-});
-
-app.get("/ma", async (req, res) => {
-  try {
-    // Listamos manualmente todas as colunas que queremos ver
-    // Isso ignora 'foto' e 'pdf'
-    const query = `
-      SELECT 
-        id, 
-        nome, 
-        numero_serie, 
-        modelo, 
-        fabricante, 
-        data_fabrico, 
-        infor_ad, 
-        perfil_fabricante, 
-        created_at 
-      FROM materiais 
-      ORDER BY id DESC
-    `;
-
-    const [rows] = await pool.query(query);
-    
-    // Retorna os dados (Ex: { "nome": "Router TP-Link", "modelo": "Archer C6", ... })
-    res.json(rows);
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-// Listar usuários (protegido: requer token válido)
-app.get('/usuarios', authenticateToken, async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT id, nome, email, telefone, created_at FROM usuarios ORDER BY id DESC');
-    return res.json(Array.isArray(rows) ? rows : []);
-  } catch (err) {
-    console.error('Erro ao listar usuários:', err);
-    return res.status(500).json({ error: 'Erro interno ao listar usuários.' });
-  }
-});
-
-// Obter usuário por id (protegido)
-app.get('/usuarios/:id', authenticateToken, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    if (Number.isNaN(id)) return res.status(400).json({ error: 'ID inválido.' });
-    const [rows] = await pool.query('SELECT id, nome, email, telefone, created_at FROM usuarios WHERE id = ? LIMIT 1', [id]);
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    return res.json(rows[0]);
-  } catch (err) {
-    console.error('Erro ao obter usuário:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
-  }
-});
-app.get("/user", async (req, res) => {
-  try { const [rows] = await pool.query("SELECT * FROM usuarios ORDER BY id DESC"); res.json(rows); }
-  catch (err) { handleError(res, err); }
-});
-app.get("/tabelas", async (req, res) => {
-  try {
-    const query = `
-      SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-      ORDER BY TABLE_NAME, ORDINAL_POSITION;
-    `;
-    
-    const [rows] = await pool.query(query);
-    res.json(rows);
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-// Lista materiais (metadados apenas) - EXCLUI campos grandes para evitar payloads enormes
-// Lista materiais (metadados apenas) - EXCLUI campos grandes para evitar payloads enormes
-// Suporta paginação via query params: ?page=1&limit=24
-app.get('/materiais', async (req, res) => {
-  try {
-    // parametros de paginação básicos
-    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
-    const limit = Math.max(1, Math.min(200, parseInt(String(req.query.limit || '24'), 10) || 24));
-    const offset = (page - 1) * limit;
-
-    // suporte a pesquisa por termo (nome, numero_serie, fabricante)
-    const search = String(req.query.search || '').trim();
-    let whereClause = '';
-    const params = [];
-    if (search) {
-      whereClause = `WHERE nome LIKE ? OR numero_serie LIKE ? OR fabricante LIKE ?`;
-      const like = `%${search}%`;
-      params.push(like, like, like);
-    }
-
-    // suporte a filtro exato por fabricante (opcional)
-    const fabricanteFilter = String(req.query.fabricante || '').trim();
-    if (fabricanteFilter) {
-      if (whereClause) {
-        whereClause += ' AND fabricante = ?';
-      } else {
-        whereClause = 'WHERE fabricante = ?';
-      }
-      params.push(fabricanteFilter);
-    }
-
-    // Total de registros para paginação (considerando filtro)
-    const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM materiais ${whereClause}`, params);
-
-    const query = `
-      SELECT id, nome AS nome_material, numero_serie, modelo, fabricante, infor_ad AS descricao, perfil_fabricante, foto, created_at
-      FROM materiais
-      ${whereClause}
-      ORDER BY id DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    // adiciona limites aos parâmetros finais
-    params.push(limit, offset);
-    const [rows] = await pool.query(query, params);
-
-    const items = Array.isArray(rows) ? rows : [];
-    const totalNum = Number(total || 0);
-    const totalPages = Math.max(1, Math.ceil(totalNum / limit));
-
-    return res.json({ items, meta: { total: totalNum, page, limit, totalPages } });
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-
-// Busca material pelo número de série (retorna registro completo com foto/pdf)
-app.get('/materiais/serie/:numero_serie', async (req, res) => {
-  try {
-    const numero = String(req.params.numero_serie || '').trim();
-    if (!numero) return res.status(400).json({ error: 'Número de série ausente.' });
-    const [rows] = await pool.query('SELECT * FROM materiais WHERE numero_serie = ? LIMIT 1', [numero]);
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Material não encontrado.' });
-    return res.json(rows[0]);
-  } catch (err) {
-    return handleError(res, err);
-  }
-});
-
-// Rota para obter um material completo (inclui foto/pdf base64) quando necessário
-// Retorna com todos os campos mapeados para frontend
-app.get('/materiais/:id', async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: 'ID inválido.' });
-    
-    const [rows] = await pool.query('SELECT * FROM materiais WHERE id = ? LIMIT 1', [id]);
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(404).json({ error: 'Material não encontrado.' });
-    }
-
-    const material = rows[0];
-    
-    // Mapeia campos para compatibilidade com frontend
-    const mapped = {
-      id: material.id,
-      nome_material: material.nome || material.nome_material,
-      numero_serie: material.numero_serie,
-      modelo: material.modelo,
-      fabricante: material.fabricante,
-      data_fabrico: material.data_fabrico,
-      infor_ad: material.infor_ad,
-      perfil_fabricante: material.perfil_fabricante,
-      foto: material.foto,
-      pdf: material.pdf,
-      created_at: material.created_at,
-      // campos legais
-      descricao: material.infor_ad,
-      code_id: material.id,
-    };
-
-    console.log(`[GET /materiais/:id] fetched material id=${id}`);
-    return res.json(mapped);
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-
-// Dashboard: retorna contagens/indicadores simples usados pelo frontend
-// Rota `/dashboard` pública temporariamente para facilitar testes locais.
-app.get('/dashboard', async (req, res) => {
-  try {
-    // Total de usuários
-    const [[{ cnt: total_usuarios }]] = await pool.query("SELECT COUNT(*) AS cnt FROM usuarios");
-    // Total de materiais
-    const [[{ cnt: total_materiais }]] = await pool.query("SELECT COUNT(*) AS cnt FROM materiais");
-    // Empréstimos ativos (tabela pode não existir ainda) - tenta retornar 0 se não existir
-    let emprestimos_abertos = 0;
-    try {
-      const [[{ cnt }]] = await pool.query("SELECT COUNT(*) AS cnt FROM emprestimos WHERE status = 'aberto'");
-      emprestimos_abertos = Number(cnt || 0);
-    } catch (e) {
-      // tabela emprestimos não existe — ignora e deixa 0
-      emprestimos_abertos = 0;
-    }
-
-    return res.json({ total_usuarios: Number(total_usuarios || 0), total_materiais: Number(total_materiais || 0), emprestimos_abertos });
-  } catch (err) {
-    return handleError(res, err);
-  }
-});
-
-// Estatísticas agregadas para dashboard (charts)
-app.get('/stats', async (req, res) => {
-  try {
-    // Materials per month (last 12 months)
-    const matsByMonthQuery = `
-      SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, COUNT(*) AS cnt
-      FROM materiais
-      GROUP BY month
-      ORDER BY month DESC
-      LIMIT 12
-    `;
-    const [matsByMonthRows] = await pool.query(matsByMonthQuery);
-
-    // Materials by fabricante
-    const matsByFabQuery = `
-      SELECT COALESCE(fabricante, 'Desconhecido') AS fabricante, COUNT(*) AS cnt
-      FROM materiais
-      GROUP BY fabricante
-      ORDER BY cnt DESC
-      LIMIT 12
-    `;
-    const [matsByFabRows] = await pool.query(matsByFabQuery);
-
-    // Try loans per month (may not exist)
-    let loansByMonthRows = [];
-    try {
-      const loansQuery = `
-        SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, COUNT(*) AS cnt
-        FROM emprestimos
-        GROUP BY month
-        ORDER BY month DESC
-        LIMIT 12
-      `;
-      const [rows] = await pool.query(loansQuery);
-      loansByMonthRows = rows;
-    } catch (e) {
-      // ignore if table doesn't exist
-      loansByMonthRows = [];
-    }
-
-    return res.json({
-      materials_by_month: Array.isArray(matsByMonthRows) ? matsByMonthRows : [],
-      materials_by_fabricante: Array.isArray(matsByFabRows) ? matsByFabRows : [],
-      loans_by_month: Array.isArray(loansByMonthRows) ? loansByMonthRows : [],
-    });
-  } catch (err) {
-    return handleError(res, err);
-  }
-});
-
-// Rota para cadastrar novo material (com upload de foto e pdf)
-app.post('/materiais', authenticateToken, upload.fields([{ name: 'foto', maxCount: 1 }, { name: 'pdf', maxCount: 1 }]), async (req, res) => {
-  try {
-    console.log('[POST /materiais] called by user:', req.user ? req.user.sub : 'anonymous');
-    console.log('[POST /materiais] body keys:', Object.keys(req.body || {}));
-    console.log('[POST /materiais] files keys:', Object.keys(req.files || {}));
-    // campos textuais vêm em req.body
-    const {
-      nome,
-      modelo,
-      fabricante,
-      ano_fabrico,
-      numero_serie,
-      perfil_fabricante,
-      informacoes_adicionais
-    } = req.body || {};
-
-    if (!nome || !numero_serie) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes: nome e numero_serie.' });
-    }
-
-    // Trata arquivos enviados (memória) e converte para data:URI base64 para salvar no DB
-    const files = req.files || {};
-    let fotoData = null;
-    let pdfData = null;
-    if (files.foto && files.foto[0] && files.foto[0].buffer) {
-      const f = files.foto[0];
-      const b64 = f.buffer.toString('base64');
-      fotoData = `data:${f.mimetype};base64,${b64}`;
-    }
-    if (files.pdf && files.pdf[0] && files.pdf[0].buffer) {
-      const p = files.pdf[0];
-      const b64 = p.buffer.toString('base64');
-      pdfData = `data:${p.mimetype};base64,${b64}`;
-    }
-
-    // Converte ano_fabrico para data se necessário (usa 1º jan do ano)
-    let data_fabrico = null;
-    if (ano_fabrico) {
-      // se já for uma data, tenta usar; se for apenas ano, cria uma data YYYY-01-01
-      if (/^\d{4}$/.test(String(ano_fabrico))) {
-        data_fabrico = `${ano_fabrico}-01-01`;
-      } else {
-        data_fabrico = ano_fabrico;
-      }
-    }
-
-    // Insere no banco
-    const sql = `INSERT INTO materiais (nome, numero_serie, modelo, fabricante, data_fabrico, infor_ad, perfil_fabricante, foto, pdf) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const params = [nome, numero_serie, modelo || null, fabricante || null, data_fabrico || null, informacoes_adicionais || null, perfil_fabricante || null, fotoData, pdfData];
-    const [result] = await pool.query(sql, params);
-
-    // Busca o registro criado para retornar
-    const [rows] = await pool.query('SELECT * FROM materiais WHERE id = ? LIMIT 1', [result.insertId]);
-    const created = Array.isArray(rows) && rows.length ? rows[0] : null;
-
-    // Notificação: resposta clara para o front
-    return res.status(201).json({ message: 'Material cadastrado com sucesso.', material: created });
-  } catch (err) {
-    console.error('Erro ao cadastrar material:', err && err.stack ? err.stack : err);
-    // Duplicate key (numero_serie) -> ER_DUP_ENTRY
-    if (err && err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Número de série já cadastrado.' });
-    }
-    return res.status(500).json({ error: err && err.message ? String(err.message) : 'Erro ao cadastrar material.' });
-  }
-});
-
-// Atualizar material por id (suporta JSON + multipart/form-data)
-app.put('/materiais/:id', authenticateToken, upload.fields([{ name: 'foto', maxCount: 1 }, { name: 'pdf', maxCount: 1 }]), async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: 'ID inválido.' });
-
-    // Verifica se o material existe
-    const [existing] = await pool.query('SELECT * FROM materiais WHERE id = ? LIMIT 1', [id]);
-    if (!Array.isArray(existing) || existing.length === 0) {
-      return res.status(404).json({ error: 'Material não encontrado.' });
-    }
-    const currentMaterial = existing[0];
-
-    // Processa arquivo de foto se enviado
-    let fotoData = undefined;
-    if (req.files?.foto?.[0]?.buffer) {
-      const fotoBuffer = req.files.foto[0].buffer;
-      const fotoMimeType = req.files.foto[0].mimetype || 'image/jpeg';
-      fotoData = `data:${fotoMimeType};base64,${fotoBuffer.toString('base64')}`;
-    }
-
-    // Processa arquivo de PDF se enviado
-    let pdfData = undefined;
-    if (req.files?.pdf?.[0]?.buffer) {
-      const pdfBuffer = req.files.pdf[0].buffer;
-      pdfData = `data:application/pdf;base64,${pdfBuffer.toString('base64')}`;
-    }
-
-    // Campos permitidos para atualização
-    const allowed = ['nome', 'numero_serie', 'modelo', 'fabricante', 'data_fabrico', 'infor_ad', 'perfil_fabricante'];
-    const updates = [];
-    const params = [];
-
-    // Processa campos de texto
-    for (const key of allowed) {
-      if (Object.prototype.hasOwnProperty.call(req.body, key) && req.body[key] !== undefined) {
-        updates.push(`${key} = ?`);
-        params.push(req.body[key] === '' ? null : String(req.body[key]));
-      }
-    }
-
-    // Adiciona arquivos se foram processados
-    if (fotoData !== undefined) {
-      updates.push('foto = ?');
-      params.push(fotoData);
-    }
-
-    if (pdfData !== undefined) {
-      updates.push('pdf = ?');
-      params.push(pdfData);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'Nenhum campo para atualizar.' });
-    }
-
-    // Verifica numero_serie único (se foi enviado e é diferente do atual)
-    if (req.body.numero_serie && String(req.body.numero_serie) !== String(currentMaterial.numero_serie)) {
-      const [dupCheck] = await pool.query(
-        'SELECT id FROM materiais WHERE numero_serie = ? AND id != ? LIMIT 1',
-        [req.body.numero_serie, id]
-      );
-      if (Array.isArray(dupCheck) && dupCheck.length > 0) {
-        return res.status(409).json({ error: 'Número de série já cadastrado por outro material.' });
-      }
-    }
-
-    params.push(id);
-    const sql = `UPDATE materiais SET ${updates.join(', ')} WHERE id = ?`;
-    
-    const [result] = await pool.query(sql, params);
-
-    // Retorna registro completo atualizado
-    const [rows] = await pool.query('SELECT * FROM materiais WHERE id = ? LIMIT 1', [id]);
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(404).json({ error: 'Material não encontrado após atualização.' });
-    }
-
-    console.log(`[PUT /materiais/:id] updated material id=${id} by user=${req.user.sub}`);
-    return res.json({ message: 'Material atualizado com sucesso.', material: rows[0] });
-  } catch (err) {
-    console.error('Erro ao atualizar material:', err && err.stack ? err.stack : err);
-    if (err && err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Número de série já cadastrado.' });
-    }
-    return handleError(res, err);
-  }
-});
-
-app.get("/", async (req, res) => {
- res.send("Servidor rodando");
-});
-
-
-// Rota de login: valida email + senha
-app.post('/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
-    }
-
-    const [rows] = await pool.query('SELECT id, nome, email, senha_hash, telefone, created_at FROM usuarios WHERE email = ?', [email]);
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      console.log(`[auth/login] no user found for email=${email}`);
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
-    }
-
-    const user = rows[0];
-    // Log detalhado do usuário encontrado (NÃO logar senha)
-    console.log(`[auth/login] found user -> id=${user.id} nome=${user.nome} email=${user.email}`);
-    const match = await bcrypt.compare(password, user.senha_hash);
-    if (!match) {
-      return res.status(401).json({ error: 'Credenciais inválidas.' });
-    }
-
-    // Não enviar a hash de volta.
-    const safeUser = {
-      id: user.id,
-      nome: user.nome,
-      email: user.email,
-      telefone: user.telefone,
-      created_at: user.created_at
-    };
-
-    // Log de depuração: não incluir senha
-    console.log(`[auth/login] success login for email=${email} userId=${user.id} nome=${user.nome}`);
-
-    // Gera JWT de acesso e refresh token; armazena refresh token no banco
-    // Normaliza o payload garantindo que o `sub` seja sempre uma string numérica
-    const accessPayload = { sub: String(user.id) };
-    // Log de depuração: emissão de tokens (remover em produção)
-    console.log(`[auth/login] issuing tokens for userId=${user.id} nome=${user.nome}`);
-    const token = jwt.sign(accessPayload, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ sub: String(user.id) }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
-
-    // calcula expiry para o refresh (MySQL DATETIME no formato YYYY-MM-DD HH:MM:SS)
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    const expiresAtSQL = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
-    try {
-      await pool.query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [user.id, refreshToken, expiresAtSQL]);
-    } catch (dbErr) {
-      console.error('Erro ao salvar refresh token:', dbErr);
-    }
-
-    // Log payload de resposta (safe) antes de enviar
-    console.log('[auth/login] response payload:', { id: safeUser.id, nome: safeUser.nome, email: safeUser.email });
-    return res.json({ ...safeUser, token, refreshToken });
-  } catch (err) {
-    console.error('Erro no login:', err);
-    return res.status(500).json({ error: 'Erro interno ao autenticar.' });
-  }
-});
-
-// Endpoint para trocar refresh token por novo access token (rotaciona refresh token)
-app.post('/auth/refresh', async (req, res) => {
-  try {
-    const { refreshToken } = req.body || {};
-    if (!refreshToken) return res.status(400).json({ error: 'Refresh token ausente.' });
-
-    // Verifica validade do token assinando com o segredo de refresh
-    let payload;
-    try {
-      payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-    } catch (err) {
-      return res.status(401).json({ error: 'Refresh token inválido ou expirado.' });
-    }
-    // Log payload do refresh token
-    console.log('[auth/refresh] refresh payload:', payload);
-    const userId = Number(payload.sub);
-    const [rows] = await pool.query('SELECT id, user_id, revoked, expires_at FROM refresh_tokens WHERE token = ? LIMIT 1', [refreshToken]);
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(401).json({ error: 'Refresh token não encontrado.' });
-    const row = rows[0];
-    if (row.revoked) return res.status(401).json({ error: 'Refresh token revogado.' });
-    const now = new Date();
-    if (new Date(row.expires_at) < now) return res.status(401).json({ error: 'Refresh token expirado.' });
-
-    // Busca dados do usuário para gerar novo access token
-    const [userRows] = await pool.query('SELECT id, nome, email, telefone FROM usuarios WHERE id = ?', [userId]);
-    if (!Array.isArray(userRows) || userRows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    const user = userRows[0];
-
-    // Rotaciona: marca o refresh token atual como revogado e cria um novo
-    await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE id = ?', [row.id]);
-    console.log(`[auth/refresh] rotating refresh for userId=${user.id} (oldTokenId=${row.id})`);
-    const newRefreshToken = jwt.sign({ sub: String(user.id) }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
-    const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,19).replace('T',' ');
-    await pool.query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)', [user.id, newRefreshToken, newExpiresAt]);
-
-    const newAccessToken = jwt.sign({ sub: String(user.id) }, JWT_SECRET, { expiresIn: '15m' });
-
-    return res.json({ token: newAccessToken, refreshToken: newRefreshToken });
-  } catch (err) {
-    console.error('Erro em /auth/refresh:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
-  }
-});
-
-// Logout: revoga um refresh token
-app.post('/auth/logout', async (req, res) => {
-  try {
-    const { refreshToken } = req.body || {};
-    if (!refreshToken) return res.status(400).json({ error: 'Refresh token ausente.' });
-
-    await pool.query('UPDATE refresh_tokens SET revoked = 1 WHERE token = ?', [refreshToken]);
-    return res.json({ message: 'Logout realizado.' });
-  } catch (err) {
-    console.error('Erro em /auth/logout:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
-  }
-});
-
-// Middleware para rotas protegidas
-function authenticateToken(req, res, next) {
-  const auth = req.headers.authorization || '';
-  const parts = auth.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ error: 'Token ausente ou formato inválido.' });
-  }
-
-  const token = parts[1];
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    // Log do payload recebido (útil para depuração)
-    console.log('[auth] token payload:', payload);
-    // Normaliza o conteúdo do req.user para evitar ambiguidades (sempre ter id numérico)
-    req.user = {
-      sub: Number(payload.sub),
-      role: payload.role || null,
-    };
-    console.log(`[auth] set req.user.sub=${req.user.sub} role=${req.user.role}`);
-    return next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Token inválido ou expirado.' });
-  }
-}
-
-// Rota protegida de exemplo: retorna informações do usuário logado
-app.get('/me', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user && Number(req.user.sub);
-    console.log(`[GET /me] requested by userId=${userId}`);
-    if (!userId || Number.isNaN(userId)) return res.status(400).json({ error: 'Usuário inválido no token.' });
-
-    const [rows] = await pool.query('SELECT id, nome, email, telefone, created_at FROM usuarios WHERE id = ?', [userId]);
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado.' });
-
-    const u = rows[0];
-    console.log('[GET /me] returning user:', { id: u.id, email: u.email });
-    return res.json({ id: u.id, nome: u.nome, email: u.email, telefone: u.telefone, created_at: u.created_at });
-  } catch (err) {
-    console.error('Erro em /me:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
-  }
-});
-
-// Inicializa o banco (cria tabelas) e depois sobe o servidor
-(async () => {
-  try {
-    await initDatabase();
-  } catch (err) {
-    console.warn('Continuando sem bloqueio mesmo se initDatabase falhar.');
-  }
-
-  app.listen(PORT, () => console.log(`Smart Lab API rodando na porta ${PORT}`));
-})();
