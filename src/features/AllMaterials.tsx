@@ -37,7 +37,7 @@ export default function AllMaterials() {
       setLoading(true);
       setError(null);
       try {
-        const resp = await api.get('/materiais', { params: { page, limit } });
+        const resp = await api.get('/materiais', { params: { page, limit, search: searchTerm } });
         if (!mounted) return;
         // API agora retorna { items, meta }
         const items = resp?.data?.items ?? [];
@@ -62,14 +62,15 @@ export default function AllMaterials() {
     }
     load();
     return () => { mounted = false; };
-  }, [page, limit]);
+  }, [page, limit, searchTerm]);
 
-  // Filtro em tempo real
-  const filteredMaterials = materiais.filter(m => 
-    m.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.numero_serie?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.fabricante?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // sempre que o termo de busca mudar, voltar para primeira página
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  // quando usamos busca no servidor, não precisamos filtrar por termo localmente
+  const filteredMaterials = materiais; // manter existente para possível filtro futuro
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -114,7 +115,7 @@ export default function AllMaterials() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Buscar por nome, série..."
+                placeholder="Buscar por nome, número de série ou fabricante..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-white dark:bg-gray-800 border-none rounded-2xl shadow-sm focus:ring-2 focus:ring-sky-500 transition-all outline-none text-sm"

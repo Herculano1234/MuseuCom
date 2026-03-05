@@ -14,6 +14,11 @@ import {
   Send,
   Edit,
   LucideIcon,
+  FileText,
+  Box,
+  Calendar,
+  Server,
+  ShieldCheck,
 } from 'lucide-react';
 import api from '../../api';
 import { useToast } from '../../components/ToastContext';
@@ -79,6 +84,17 @@ export default function MateriaisProfPage() {
     fr.readAsDataURL(file);
   });
 
+  // Helper para contar campos em FormData (compatível com iterador)
+  const countFormDataFields = (formData: FormData): number => {
+    let count = 0;
+    try {
+      for (const _ of formData.entries()) {
+        count++;
+      }
+    } catch(e) {}
+    return count;
+  };
+
   const toLocalDateTimeInput = (dt: Date) => {
     const pad = (n:number) => n.toString().padStart(2, '0');
     return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
@@ -100,6 +116,12 @@ export default function MateriaisProfPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string | 'Todos'>('Todos');
 
+  // paginação (para pesquisa em servidor)
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(50);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +135,12 @@ export default function MateriaisProfPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get('/materiais');
+      const params: any = { page, limit };
+      if (searchTerm) params.search = searchTerm;
+      if (filterType && filterType !== 'Todos') {
+        params.fabricante = filterType;
+      }
+      const res = await api.get('/materiais', { params });
       // Support both legacy array response and new { items, meta } shape
       const dataArray = Array.isArray(res.data)
         ? res.data
@@ -139,6 +166,12 @@ export default function MateriaisProfPage() {
           descricao: r.descricao ?? r.infor_ad ?? null,
         } as Material));
         setMateriais(normalized);
+        // atualizar paginação se meta estiver presente
+        if (res.data?.meta) {
+          setTotal(Number(res.data.meta.total || 0));
+          setTotalPages(Number(res.data.meta.totalPages || 1));
+          setPage(Number(res.data.meta.page || page));
+        }
       } else {
         setMateriais([]);
       }
@@ -151,19 +184,34 @@ export default function MateriaisProfPage() {
     }
   };
 
-  useEffect(() => { reloadMateriais(); }, []);
+  // Busca completo de material por id (carrega foto/pdf somente quando necessário)
+  const fetchMaterialById = async (id: number) => {
+    try {
+      const res = await api.get(`/materiais/${encodeURIComponent(String(id))}`);
+      return res.data;
+    } catch (err:any) {
+      console.error('Erro ao buscar material por id', err);
+      try { toast.showToast('Erro ao carregar detalhes do material', 'error'); } catch(e){}
+      return null;
+    }
+  };
+
+  // carrega a cada mudança de pesquisa, filtro ou página
+  useEffect(() => { reloadMateriais(); }, [searchTerm, filterType, page, limit]);
+
+  // reset page ao mudar pesquisa ou filtro
+  useEffect(() => { setPage(1); }, [searchTerm, filterType]);
 
   // (Empréstimo/beneficiário removido) – lista de usuários não mais carregada aqui
 
 
-  // Lógica de Filtragem e Busca (sem alteração)
+  // Lógica de Filtragem por fabricante somente (busca SQL é feita no servidor)
   const filteredMateriais = useMemo(() => {
-    return materiais.filter(material => {
-      const matchesSearch = (material.nome_material || '').toLowerCase().includes(searchTerm.toLowerCase()) || (material.descricao || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'Todos' || (material.nome_tipo || '—') === filterType;
-      return matchesSearch && matchesType;
-    });
-  }, [materiais, searchTerm, filterType]);
+    if (filterType && filterType !== 'Todos') {
+      return materiais.filter(material => (material.fabricante || '') === filterType);
+    }
+    return materiais;
+  }, [materiais, filterType]);
 
   // Renderiza a lista de filtros de forma elegante (sem alteração)
   const renderFilterButtons = (label: string, options: string[], currentFilter: string, setFilter: (val: any) => void) => (
@@ -234,7 +282,7 @@ export default function MateriaisProfPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por nome ou descrição..."
+                  placeholder="Buscar por nome ou descrição (pesquisa completa)"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
@@ -257,7 +305,9 @@ export default function MateriaisProfPage() {
                 className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-lg overflow-x-auto"
                 variants={itemVariants}
             >
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Lista de Materiais ({filteredMateriais.length})</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Lista de Materiais ({total > 0 ? total : filteredMateriais.length})
+              </h2>
               
               {loading ? (
                 <div className="space-y-2">
@@ -270,7 +320,9 @@ export default function MateriaisProfPage() {
                 </div>
               ) : filteredMateriais.length === 0 ? (
                 <div className="text-center p-8 text-gray-500 dark:text-gray-400">
-                  Nenhum material encontrado com os filtros aplicados.
+                  {searchTerm
+                    ? `Nenhum material encontrado para "${searchTerm}".`
+                    : 'Nenhum material encontrado com os filtros aplicados.'}
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -294,7 +346,12 @@ export default function MateriaisProfPage() {
                           key={m.id} 
                           className="hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150 cursor-pointer"
                           whileHover={{ scale: 1.01, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
-                          onClick={() => { setSelectedMaterial(m); setIsEditing(false); setFormState(null); }}
+                          onClick={async () => { 
+                            const full = await fetchMaterialById(m.id);
+                            setSelectedMaterial(full || m);
+                            setIsEditing(false);
+                            setFormState(null);
+                          }}
                         >
                           
                           {/* Coluna 1: Material e ID */}
@@ -344,12 +401,12 @@ export default function MateriaisProfPage() {
                           {/* Coluna 5: Ações */}
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                             <div className="flex justify-center space-x-2">
-                              <motion.button title="Ver Detalhes" className="p-2 text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition" whileHover={{ scale: 1.15 }} onClick={(ev)=>{ ev.stopPropagation(); setSelectedMaterial(m); setIsEditing(false); setFormState(null); }}><Eye className="w-5 h-5" /></motion.button>
+                              <motion.button title="Ver Detalhes" className="p-2 text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 transition" whileHover={{ scale: 1.15 }} onClick={async (ev)=>{ ev.stopPropagation(); const full = await fetchMaterialById(m.id); setSelectedMaterial(full || m); setIsEditing(false); setFormState(null); }}><Eye className="w-5 h-5" /></motion.button>
                               
                               {/* ATUALIZAÇÃO: Inicialização do empForm */}
                               {/* Empréstimo removed per request */}
                               
-                              <motion.button title="Editar Informações" className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition" whileHover={{ scale: 1.15 }} onClick={(ev)=>{ ev.stopPropagation(); setSelectedMaterial(m); setIsEditing(true); setFormState({ ...m }); }}><Edit className="w-5 h-5" /></motion.button>
+                              <motion.button title="Editar Informações" className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 transition" whileHover={{ scale: 1.15 }} onClick={async (ev)=>{ ev.stopPropagation(); const full = await fetchMaterialById(m.id); setSelectedMaterial(full || m); setIsEditing(true); setFormState({ ...(full || m) }); }}><Edit className="w-5 h-5" /></motion.button>
                             </div>
                           </td>
                         </motion.tr>
@@ -360,43 +417,163 @@ export default function MateriaisProfPage() {
               )}
             </motion.div>
 
+            {/* Pagination Controls similar ao AllMaterials */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="px-3 py-2 rounded-xl bg-white dark:bg-gray-800 shadow-sm disabled:opacity-40"
+                >Prev</button>
+
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(totalPages, 7) }).map((_, i) => {
+                    const half = Math.floor(Math.min(totalPages,7) / 2);
+                    let start = Math.max(1, page - half);
+                    if (start + 6 > totalPages) start = Math.max(1, totalPages - 6);
+                    const pnum = start + i;
+                    if (pnum > totalPages) return null;
+                    return (
+                      <button
+                        key={pnum}
+                        onClick={() => setPage(pnum)}
+                        className={`px-3 py-2 rounded-lg ${pnum === page ? 'bg-sky-600 text-white' : 'bg-white dark:bg-gray-800'}`}
+                      >{pnum}</button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="px-3 py-2 rounded-xl bg-white dark:bg-gray-800 shadow-sm disabled:opacity-40"
+                >Next</button>
+              </div>
+            )}
+
             {/* Modal de Detalhes / Edição de Material */}
             <AnimatePresence>
               {selectedMaterial && (
-                <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <div className="absolute inset-0 bg-black/50" onClick={() => { setSelectedMaterial(null); setFormState(null); setIsEditing(false); }} />
-                              <motion.div className="relative bg-white dark:bg-gray-800 rounded-xl max-w-3xl w-full p-6 z-10 shadow-2xl" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-start space-x-4">
+                <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => { setSelectedMaterial(null); setFormState(null); setIsEditing(false); }}>
+                  <motion.div className="relative bg-white dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-auto z-10 shadow-2xl" initial={{ y: 20, opacity: 0, scale: 0.95 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0, scale: 0.95 }} onClick={(e) => e.stopPropagation()}>
+                    
+                    {/* Header Modal */}
+                    <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex justify-between items-center">
+                      <div className="flex items-start space-x-4 flex-1">
                         {selectedMaterial.foto ? (
-                          <img src={selectedMaterial.foto} alt={selectedMaterial.nome_material} className="w-20 h-20 rounded-md object-cover bg-gray-100 dark:bg-gray-700" />
+                          <img src={selectedMaterial.foto} alt={selectedMaterial.nome_material} className="w-16 h-16 rounded-lg object-cover bg-gray-100 dark:bg-gray-700 flex-shrink-0" />
                         ) : (
-                          <div className="w-20 h-20 rounded-md flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-blue-600"><Package className="w-8 h-8" /></div>
+                          <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-700 text-blue-600 flex-shrink-0"><Package className="w-8 h-8" /></div>
                         )}
-                        <div>
-                          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{selectedMaterial.nome_material}</h2>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">ID: {selectedMaterial.id} • Tipo: {selectedMaterial.nome_tipo ?? '—'}</div>
+                        <div className="flex-1">
+                          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedMaterial.nome_material}</h2>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                              <ShieldCheck size={14} /> SN: {selectedMaterial.numero_serie || 'N/A'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                              <Box size={14} /> {selectedMaterial.modelo || 'Modelo padrão'}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                              <Calendar size={14} /> {selectedMaterial.created_at ? new Date(selectedMaterial.created_at).toLocaleDateString() : 'Sem data'}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <button className="px-3 py-1 text-sm bg-gray-200 rounded" onClick={() => { setIsEditing(s => !s); setFormState(s => s ? { ...s } : null); }}>{isEditing ? 'Visualizar' : 'Editar'}</button>
-                        <button className="px-3 py-1 text-sm bg-red-50 text-red-600 rounded" onClick={() => { setSelectedMaterial(null); setFormState(null); setIsEditing(false); }}>Fechar</button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!isEditing && (
+                          <motion.button title="Editar" className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:text-indigo-400 rounded-lg transition" whileHover={{ scale: 1.1 }} onClick={() => { setIsEditing(true); setFormState({ ...selectedMaterial }); }}>
+                            <Edit className="w-5 h-5" />
+                          </motion.button>
+                        )}
+                        <button className="px-4 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition" onClick={() => { setSelectedMaterial(null); setFormState(null); setIsEditing(false); }}>Fechar</button>
                       </div>
                     </div>
 
-                    {/* Conteúdo / Form */}
+                    {/* Conteúdo Modal */}
+                    <div className="p-8">
                     {!isEditing ? (
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{selectedMaterial.infor_ad || selectedMaterial.descricao || '—'}</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-sm text-gray-500">Número de Série</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.numero_serie ?? '—'}</div>
-                          <div className="text-sm text-gray-500">Modelo</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.modelo ?? '—'}</div>
-                          <div className="text-sm text-gray-500">Fabricante</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.fabricante ?? '—'}</div>
-                          <div className="text-sm text-gray-500">Data Fabrico</div>
-                          <div className="text-sm text-gray-900">{selectedMaterial.data_fabrico ? new Date(selectedMaterial.data_fabrico).toLocaleDateString() : '—'}</div>
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* Coluna Imagem (Esquerda) */}
+                        <div className="lg:col-span-5">
+                          <div className="sticky top-32 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '1' }}>
+                            {selectedMaterial.foto ? (
+                              <motion.img 
+                                whileHover={{ scale: 1.05 }}
+                                src={selectedMaterial.foto} 
+                                alt={selectedMaterial.nome_material} 
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-3 text-gray-400">
+                                <Box size={48} strokeWidth={1} />
+                                <span className="text-sm font-medium">Imagem indisponível</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Coluna Informações (Direita) */}
+                        <div className="lg:col-span-7 space-y-6">
+                          {/* Informações Adicionais */}
+                          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                            <h3 className="text-xs uppercase tracking-widest font-black text-sky-600 dark:text-sky-400 mb-3">Informações Adicionais</h3>
+                            <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                              {selectedMaterial.infor_ad || "Nenhuma descrição adicional informada para este item."}
+                            </p>
+                          </motion.section>
+
+                          {/* Sobre o Fabricante */}
+                          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                            <h3 className="text-xs uppercase tracking-widest font-black text-sky-600 dark:text-sky-400 mb-4">Sobre o Fabricante</h3>
+                            <div className="flex items-start gap-4">
+                              <div className="mt-1 bg-sky-100 dark:bg-sky-900/30 p-3 rounded-lg text-sky-600 dark:text-sky-400 flex-shrink-0">
+                                <Server size={20} />
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-bold text-gray-800 dark:text-gray-200">{selectedMaterial.fabricante || "Fabricante Desconhecido"}</h4>
+                                <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 italic leading-relaxed">
+                                  {selectedMaterial.perfil_fabricante || "Detalhes do fabricante não disponíveis."}
+                                </p>
+                              </div>
+                            </div>
+                          </motion.section>
+
+                          {/* Especificações Técnicas */}
+                          <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                            <h3 className="text-xs uppercase tracking-widest font-black text-sky-600 dark:text-sky-400 mb-4">Especificações</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Número de Série</div>
+                                <div className="text-sm font-mono text-gray-900 dark:text-gray-100">{selectedMaterial.numero_serie ?? '—'}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Modelo</div>
+                                <div className="text-sm text-gray-900 dark:text-gray-100">{selectedMaterial.modelo ?? '—'}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Data de Fabrico</div>
+                                <div className="text-sm text-gray-900 dark:text-gray-100">{selectedMaterial.data_fabrico ? new Date(selectedMaterial.data_fabrico).toLocaleDateString('pt-PT') : '—'}</div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Criado em</div>
+                                <div className="text-sm text-gray-900 dark:text-gray-100">{selectedMaterial.created_at ? new Date(selectedMaterial.created_at).toLocaleDateString('pt-PT') : '—'}</div>
+                              </div>
+                            </div>
+                          </motion.section>
+
+                          {/* PDF Link */}
+                          {selectedMaterial.pdf && (
+                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-xl p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                <span className="text-sm font-medium text-indigo-900 dark:text-indigo-300">Ficha Técnica PDF</span>
+                              </div>
+                              <a href={selectedMaterial.pdf} target="_blank" rel="noreferrer" className="px-3 py-1 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                                Abrir
+                              </a>
+                            </motion.div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -483,20 +660,87 @@ export default function MateriaisProfPage() {
                           <div className="text-xs text-gray-500">Campos salvos são aplicados à tabela `materiais`.</div>
                           <div className="flex items-center gap-2">
                             <button className="px-4 py-2 bg-gray-200 rounded" onClick={() => { setIsEditing(false); setFormState(null); }}>Cancelar</button>
-                            <button className="px-4 py-2 bg-sky-600 text-white rounded" onClick={async ()=>{
+                            <button className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!formState} onClick={async (btn)=>{
                               if (!formState) return;
+                              btn.currentTarget.disabled = true;
                               try {
-                                const payload:any = {};
-                                if (formState.nome_material !== undefined) payload.nome = formState.nome_material;
-                                if (formState.numero_serie !== undefined) payload.numero_serie = formState.numero_serie;
-                                if (formState.modelo !== undefined) payload.modelo = formState.modelo;
-                                if (formState.fabricante !== undefined) payload.fabricante = formState.fabricante;
-                                if (formState.data_fabrico !== undefined) payload.data_fabrico = formState.data_fabrico;
-                                if (formState.infor_ad !== undefined) payload.infor_ad = formState.infor_ad;
-                                if (formState.perfil_fabricante !== undefined) payload.perfil_fabricante = formState.perfil_fabricante;
-                                if (formState.foto !== undefined) payload.foto = formState.foto;
-                                if (formState.pdf !== undefined) payload.pdf = formState.pdf;
-                                await api.put(`/materiais/${encodeURIComponent(String(selectedMaterial.id))}`, payload);
+                                // Prepara FormData para suportar arquivo
+                                const formData = new FormData();
+                                
+                                // Adiciona campos de texto (apenas se modificados)
+                                if (formState.nome_material !== undefined && formState.nome_material !== selectedMaterial.nome_material) {
+                                  formData.append('nome', String(formState.nome_material));
+                                  console.log('[FORM] Modificado: nome_material');
+                                }
+                                if (formState.numero_serie !== undefined && formState.numero_serie !== selectedMaterial.numero_serie) {
+                                  formData.append('numero_serie', String(formState.numero_serie || ''));
+                                  console.log('[FORM] Modificado: numero_serie');
+                                }
+                                if (formState.modelo !== undefined && formState.modelo !== selectedMaterial.modelo) {
+                                  formData.append('modelo', String(formState.modelo || ''));
+                                  console.log('[FORM] Modificado: modelo');
+                                }
+                                if (formState.fabricante !== undefined && formState.fabricante !== selectedMaterial.fabricante) {
+                                  formData.append('fabricante', String(formState.fabricante || ''));
+                                  console.log('[FORM] Modificado: fabricante');
+                                }
+                                if (formState.data_fabrico !== undefined && formState.data_fabrico !== selectedMaterial.data_fabrico) {
+                                  formData.append('data_fabrico', String(formState.data_fabrico || ''));
+                                  console.log('[FORM] Modificado: data_fabrico');
+                                }
+                                if (formState.infor_ad !== undefined && formState.infor_ad !== selectedMaterial.infor_ad) {
+                                  formData.append('infor_ad', String(formState.infor_ad || ''));
+                                  console.log('[FORM] Modificado: infor_ad');
+                                }
+                                if (formState.perfil_fabricante !== undefined && formState.perfil_fabricante !== selectedMaterial.perfil_fabricante) {
+                                  formData.append('perfil_fabricante', String(formState.perfil_fabricante || ''));
+                                  console.log('[FORM] Modificado: perfil_fabricante');
+                                }
+
+                                // Se foto foi modificada (novo arquivo ou removido)
+                                if (formState.foto !== selectedMaterial.foto) {
+                                  if (formState.foto && formState.foto.startsWith('data:')) {
+                                    // Conversão de data URL para Blob para envio
+                                    const response = await fetch(formState.foto);
+                                    const blob = await response.blob();
+                                    formData.append('foto', blob, 'foto.jpg');
+                                    console.log('[FORM] Adicionado arquivo: foto');
+                                  } else if (!formState.foto) {
+                                    formData.append('foto', '');
+                                    console.log('[FORM] Removido: foto');
+                                  }
+                                }
+
+                                // Se PDF foi modificado
+                                if (formState.pdf !== selectedMaterial.pdf) {
+                                  if (formState.pdf && formState.pdf.startsWith('data:')) {
+                                    const response = await fetch(formState.pdf);
+                                    const blob = await response.blob();
+                                    formData.append('pdf', blob, 'ficha.pdf');
+                                    console.log('[FORM] Adicionado arquivo: pdf');
+                                  } else if (!formState.pdf) {
+                                    formData.append('pdf', '');
+                                    console.log('[FORM] Removido: pdf');
+                                  }
+                                }
+
+                                // Se nenhum campo foi modificado
+                                if (countFormDataFields(formData) === 0) {
+                                  try { toast.showToast('Nenhuma alteração detectada', 'info'); } catch(e){}
+                                  return;
+                                }
+
+                                console.log(`[SAVE] Enviando ${countFormDataFields(formData)} campos para /materiais/${selectedMaterial.id}`);
+
+                                // Envia com PUT
+                                const response = await api.put(`/materiais/${encodeURIComponent(String(selectedMaterial.id))}`, formData, {
+                                  headers: {
+                                    'Content-Type': 'multipart/form-data',
+                                  }
+                                });
+
+                                console.log('[SAVE] Sucesso:', response.data);
+
                                 // Atualiza localmente
                                 await reloadMateriais();
                                 setSelectedMaterial(null);
@@ -504,14 +748,19 @@ export default function MateriaisProfPage() {
                                 setIsEditing(false);
                                 try { toast.showToast('Material atualizado com sucesso', 'success'); } catch(e){}
                               } catch (err:any) {
-                                console.error('Erro ao salvar material', err);
-                                try { toast.showToast('Erro ao salvar material: ' + (err?.response?.data?.error || err?.message || ''), 'error'); } catch(e){}
+                                console.error('[SAVE] Erro:', err);
+                                const errorMsg = err?.response?.data?.error || err?.message || 'Erro desconhecido';
+                                console.error('[SAVE] Status:', err?.response?.status, 'Message:', errorMsg);
+                                try { toast.showToast('❌ ' + errorMsg, 'error'); } catch(e){}
+                              } finally {
+                                btn.currentTarget.disabled = false;
                               }
-                            }}>Salvar</button>
+                            }}>Salvar Alterações</button>
                           </div>
                         </div>
                       </div>
                     )}
+                    </div>
                   </motion.div>
                 </motion.div>
               )}

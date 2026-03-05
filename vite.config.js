@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/hospitais': 'http://localhost:4000',
+      '/museu': 'http://localhost:4000',
       // Adicione outros endpoints se necessário
     },
   },
